@@ -2,7 +2,7 @@ data "aws_caller_identity" "current" {}
 
 data "aws_iam_role" "instance_management_role" {
   count = var.enable_instance_role ? 0 : 1
-  name = "ghes-instance-management-role"
+  name  = "ghes-instance-management-role"
 }
 
 resource "aws_iam_instance_profile" "instance_management_profile" {
@@ -41,7 +41,7 @@ resource "aws_iam_role_policy_attachment" "ssm_core" {
 
 resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
   count      = var.enable_instance_role ? 1 : 0
-  role       = aws_iam_role.instance_management_role[0].name  
+  role       = aws_iam_role.instance_management_role[0].name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
@@ -380,6 +380,13 @@ resource "aws_instance" "github_instance" {
     },
     var.common_tags
   )
+  monitoring = true
+
+  metadata_options {
+    http_tokens                 = "required" # Require token (IMDSv2 only)
+    http_endpoint               = "enabled"  # Keep metadata endpoint enabled
+    http_put_response_hop_limit = 1          # Limit hop count for PUT requests
+  }
 }
 
 resource "aws_eip" "github_eip" {
@@ -514,6 +521,14 @@ resource "aws_instance" "backup_host" {
     },
     var.common_tags
   )
+  
+  monitoring = true
+
+  metadata_options {
+    http_tokens                 = "required" # Require token (IMDSv2 only)
+    http_endpoint               = "enabled"  # Keep metadata endpoint enabled
+    http_put_response_hop_limit = 1          # Limit hop count for PUT requests
+  }
 }
 
 resource "aws_eip" "backup_eip" {
@@ -594,7 +609,8 @@ locals {
 }
 
 resource "aws_sns_topic" "cloudwatch_alarm_topic" {
-  name = "github-${var.environment}-cloudwatch-alarms"
+  name              = "github-${var.environment}-cloudwatch-alarms"
+  kms_master_key_id = "alias/aws/sns"
 }
 
 resource "aws_sns_topic_subscription" "alarm_subscription" {

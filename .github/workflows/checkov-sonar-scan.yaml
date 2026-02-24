@@ -27,7 +27,7 @@ jobs:
 
       # Single Checkov run over the Terraform module directory
       - name: Run Checkov SAST Scan
-        uses: UKHomeOffice/core-cloud-workflow-checkov-sast-scan@1.7.0
+        uses: UKHomeOffice/core-cloud-workflow-checkov-sast-scan@1.12.0
         with:
           path: modules/core-cloud-ghes-terraform
 
