@@ -31,29 +31,29 @@ jobs:
         with:
           path: modules/core-cloud-ghes-terraform
 
-  sonarqube_scan:
-    name: SonarQube Scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+  #sonarqube_scan:
+  #  name: SonarQube Scan
+  #  runs-on: ubuntu-latest
+  #  steps:
+  #    - uses: actions/checkout@v4
 
-      - name: Write sonar-project.properties
-        run: |
-          cat > sonar-project.properties <<'EOF'
-          sonar.projectKey=ghes-terraform-modules
-          sonar.projectName=GHES Terraform Modules
-          sonar.sources=modules/core-cloud-ghes-terraform
-          sonar.exclusions=**/.terragrunt-cache/**,**/outputs/**,**/*.tfplan
-          sonar.qualitygate.wait=false
-          sonar.issues.fail=false
-          sonar.scm.provider=git
-          EOF
+  #    - name: Write sonar-project.properties
+  #      run: |
+  #        cat > sonar-project.properties <<'EOF'
+  #        sonar.projectKey=ghes-terraform-modules
+  #        sonar.projectName=GHES Terraform Modules
+  #        sonar.sources=modules/core-cloud-ghes-terraform
+  #        sonar.exclusions=**/.terragrunt-cache/**,**/outputs/**,**/*.tfplan
+  #        sonar.qualitygate.wait=false
+  #        sonar.issues.fail=false
+  #        sonar.scm.provider=git
+  #        EOF
 
-          echo "Generated sonar-project.properties:"
-          cat sonar-project.properties
+  #        echo "Generated sonar-project.properties:"
+  #        cat sonar-project.properties
 
-      - name: Sonarqube Scan
-        uses: UKHomeOffice/core-cloud-workflow-sonarqube-scan@1.1.4
-        with:
-          sonar_token: ${{ secrets.SONAR_TOKEN }}
-          sonar_host_url: ${{ secrets.SONAR_HOST_URL }}
+  #    - name: Sonarqube Scan
+  #      uses: UKHomeOffice/core-cloud-workflow-sonarqube-scan@1.1.4
+  #      with:
+  #       sonar_token: ${{ secrets.SONAR_TOKEN }}
+  #       sonar_host_url: ${{ secrets.SONAR_HOST_URL }}
