@@ -31,11 +31,11 @@ jobs:
         with:
           path: modules/core-cloud-ghes-terraform
 
-  #sonarqube_scan:
-  #  name: SonarQube Scan
-  #  runs-on: ubuntu-latest
-  #  steps:
-  #    - uses: actions/checkout@v4
+  sonarqube_scan:
+    name: SonarQube Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
   #    - name: Write sonar-project.properties
   #      run: |
@@ -52,8 +52,8 @@ jobs:
   #        echo "Generated sonar-project.properties:"
   #        cat sonar-project.properties
 
-  #    - name: Sonarqube Scan
-  #      uses: UKHomeOffice/core-cloud-workflow-sonarqube-scan@1.1.4
-  #      with:
-  #       sonar_token: ${{ secrets.SONAR_TOKEN }}
-  #       sonar_host_url: ${{ secrets.SONAR_HOST_URL }}
+      - name: Sonarqube Scan
+        uses: UKHomeOffice/core-cloud-workflow-sonarqube-scan@1.1.4
+        with:
+         sonar_token: ${{ secrets.SONAR_TOKEN }}
+         sonar_host_url: ${{ secrets.SONAR_HOST_URL }}
