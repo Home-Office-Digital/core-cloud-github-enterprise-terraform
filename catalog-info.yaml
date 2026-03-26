@@ -4,7 +4,7 @@ metadata:
   name: core-cloud-github-enterprise-terraform
   description: A repo for managing Terraform modules for Core Cloud GitHub Enterprise
   annotations:
-    github.com/project-slug: UKHomeOffice/core-cloud-github-enterprise-terraform
+    github.com/project-slug: Home-Office-Digital/core-cloud-github-enterprise-terraform
 spec:
   type: service
   owner: core-cloud-devops

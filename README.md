@@ -45,7 +45,7 @@ This repository is automatically scanned by `Checkov` and `SonarQube` through Gi
 
 * Runs on every *Pull Request* and *push* to `main` that modifies files under `modules/core-cloud-ghes-terraform/`.
 
-* Uses the internal reusable workflow: `UKHomeOffice/core-cloud-workflow-checkov-sast-scan@1.7.0.`
+* Uses the internal reusable workflow: `Home-Office-Digital/core-cloud-workflow-checkov-sast-scan@1.7.0.`
 
 * Performs Infrastructure-as-Code (IaC) *security, compliance, and policy validation* against Terraform configurations.
 
@@ -53,7 +53,7 @@ Results are visible under the **Actions** tab in the job summary (and optionally
 
 ### SonarQube Code Quality Scan
 
-* Uses the internal action: `UKHomeOffice/core-cloud-workflow-sonarqube-scan@1.1.4.`
+* Uses the internal action: `Home-Office-Digital/core-cloud-workflow-sonarqube-scan@1.1.4.`
 
 * Analyzes Terraform code quality, maintainability, and duplication metrics for the `modules/core-cloud-ghes-terraform directory`.
 
@@ -89,7 +89,7 @@ The following GitHub Actions workflows manage version control hygiene and code v
 
 ```hcl
 terraform {
-  source = "git::https://github.com/UKHomeOffice/core-cloud-github-enterprise-terraform//?ref=v1.5.0"
+  source = "git::https://github.com/Home-Office-Digital/core-cloud-github-enterprise-terraform//?ref=v1.5.0"
 }
 ```
 📈 CI/CD Workflow Overview
@@ -165,7 +165,7 @@ Engineers can use these RC tags in Terragrunt to test module changes before merg
 
 ```hcl
 terraform {
-  source = "git::https://github.com/UKHomeOffice/core-cloud-github-enterprise-terraform.git//modules/core-cloud-ghes-terraform?ref=vX.Y.Z-rc.N"
+  source = "git::https://github.com/Home-Office-Digital/core-cloud-github-enterprise-terraform.git//modules/core-cloud-ghes-terraform?ref=vX.Y.Z-rc.N"
 }
 
 ```
