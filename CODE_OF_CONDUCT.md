@@ -1,6 +1,6 @@
-# Code of conduct for `UKHomeOffice`
+# Code of conduct for `Home-Office-Digital`
 
-Contributors to repositories hosted in `UKHomeOffice` are expected to
+Contributors to repositories hosted in `Home-Office-Digital` are expected to
 follow the Contributor Covenant Code of
 Conduct, and those working within Government are also expected to follow the Civil Service Code
 
@@ -11,9 +11,9 @@ The [Civil Service Code](https://www.gov.uk/government/publications/civil-servic
 ## Contributor Covenant Code of Conduct
 
 > Note:
-> * where the code of conduct says "project" we mean `UKHomeOffice` and all repositories hosted within it.
-> * where the code of conduct says "maintainer" we mean `UKHomeOffice` organisation owners
-> * where the code of conduct says "leadership" we mean both `UKHomeOffice` organisation owners, line managers, and other leadership within UKHomeOffice
+> * where the code of conduct says "project" we mean `Home-Office-Digital` and all repositories hosted within it.
+> * where the code of conduct says "maintainer" we mean `Home-Office-Digital` organisation owners
+> * where the code of conduct says "leadership" we mean both `Home-Office-Digital` organisation owners, line managers, and other leadership within Home-Office-Digital
 
 ### Our Pledge
 
