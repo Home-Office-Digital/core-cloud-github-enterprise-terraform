@@ -189,3 +189,8 @@ variable "enable_instance_role" {
   default     = false
 }
 
+variable "slack_webhook_url" {
+  description = "Slack incoming webhook URL for cert renewal notifications"
+  type        = string
+  sensitive   = true
+}

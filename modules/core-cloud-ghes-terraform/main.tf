@@ -371,6 +371,32 @@ resource "aws_instance" "github_instance" {
   sudo systemctl enable amazon-cloudwatch-agent
   sudo systemctl start amazon-cloudwatch-agent
 
+  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+  python3 -c "import zipfile; zipfile.ZipFile('/tmp/awscliv2.zip').extractall('/tmp/')"
+  chmod +x /tmp/aws/install /tmp/aws/dist/aws
+  sudo /tmp/aws/install --install-dir /usr/local/aws-cli --bin-dir /usr/local/bin
+  sudo chmod +x /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws
+  rm -rf /tmp/awscliv2.zip /tmp/aws
+  
+  cat > /opt/cert-renewal.sh << 'CERTS'
+  ${templatefile("${path.module}/templates/cert-renewal.sh.tpl", {
+    ghes_hostname     = var.ghe_hostname
+    slack_webhook_url = var.slack_webhook_url
+  })}
+  CERTS
+
+  chmod 700 /opt/cert-renewal.sh
+
+  # Install cron job to run daily at 07:00 UTC
+  cat > /etc/cron.d/ghes-cert-renewal << 'CRONFILE'
+  SHELL=/bin/bash
+  PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+  0 7 * * * root /opt/cert-renewal.sh >> /var/log/ghes-cert-renewal.log 2>&1
+  CRONFILE
+
+  chmod 644 /etc/cron.d/ghes-cert-renewal
+  chown root:root /etc/cron.d/ghes-cert-renewal
+
   EOF
 
   tags = merge(
