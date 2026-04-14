@@ -335,12 +335,23 @@ resource "aws_instance" "github_instance" {
     encrypted             = true
   }
 
+  # Though this disk is not required immediatly for 2nd instance, it will be helpful when promoted. 
+  # We have to make sure 2nd instance's disk has to be configured as backup only when it is promoted. As per Github, replica not good for backup.
+
+  ebs_block_device {
+    device_name           = "/dev/sdc"
+    volume_size           = var.backup_root_volume_size
+    volume_type           = "gp3"
+    encrypted             = true
+    delete_on_termination = false
+  }
+
   user_data = <<-EOF
   #!/bin/bash
   export DEBIAN_FRONTEND=noninteractive
 
   sudo apt-get update -y
-  sudo apt-get install -y docker.io wget curl unzip jq awscli
+  sudo apt-get install -y docker.io wget curl unzip jq awscli nvme-cli
 
   # Install SSM agent if not already installed
   if ! systemctl list-units --full -all | grep -q "amazon-ssm-agent.service"; then
@@ -397,6 +408,48 @@ resource "aws_instance" "github_instance" {
   chmod 644 /etc/cron.d/ghes-cert-renewal
   chown root:root /etc/cron.d/ghes-cert-renewal
 
+  # Change the backup to volume
+  get_nvme_device() {
+    local target_name=$1
+    for dev in /dev/nvme*n1; do
+      # AWS stores the device name (e.g. /dev/sdc) in the vendor-specific data
+      if nvme id-ctrl -v "$dev" | grep -q "$target_name"; then
+        echo "$dev"
+        return 0
+      fi
+    done
+    return 1
+  }
+
+  # Wait for attachment and identify the disk
+  TARGET_NAME="/dev/sdc"
+  REAL_DEV=""
+  while [ -z "$REAL_DEV" ]; do
+    REAL_DEV=$(get_nvme_device "$TARGET_NAME")
+    [ -z "$REAL_DEV" ] && sleep 2
+  done
+
+  # Format only if no filesystem exists
+  if ! blkid "$REAL_DEV"; then
+    mkfs -t ext4 "$REAL_DEV"
+  fi
+
+  # Mount the disk
+  mkdir -p /data/backup
+  mount "$REAL_DEV" /data/backup
+
+  # Persist using UUID (safest for reboots)
+  UUID=$(blkid -s UUID -o value "$REAL_DEV")
+  echo "UUID=$UUID /data/backup ext4 defaults,nofail 0 2" >> /etc/fstab
+
+  if [ -f /etc/github/repl-state ] && [ "$(cat /etc/github/repl-state)" = "replica" ]; then
+    echo "This instance is configured as a replica. So no backup configured as per github advice."
+    exit 0
+  fi
+
+  sudo systemctl enable ghe-backup-disk.service
+  sudo systemctl start ghe-backup-disk.service
+  
   EOF
 
   tags = merge(
