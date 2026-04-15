@@ -428,27 +428,13 @@ resource "aws_instance" "github_instance" {
     REAL_DEV=$(get_nvme_device "$TARGET_NAME")
     [ -z "$REAL_DEV" ] && sleep 2
   done
-
-  # Format only if no filesystem exists
-  if ! blkid "$REAL_DEV"; then
-    mkfs -t ext4 "$REAL_DEV"
-  fi
-
-  # Mount the disk
-  mkdir -p /data/backup
-  mount "$REAL_DEV" /data/backup
-
-  # Persist using UUID (safest for reboots)
-  UUID=$(blkid -s UUID -o value "$REAL_DEV")
-  echo "UUID=$UUID /data/backup ext4 defaults,nofail 0 2" >> /etc/fstab
-
   if [ -f /etc/github/repl-state ] && [ "$(cat /etc/github/repl-state)" = "replica" ]; then
     echo "This instance is configured as a replica. So no backup configured as per github advice."
     exit 0
   fi
 
-  sudo systemctl enable ghe-backup-disk.service
-  sudo systemctl start ghe-backup-disk.service
+  # https://docs.github.com/en/enterprise-server@3.17/admin/backing-up-and-restoring-your-instance/backup-service-for-github-enterprise-server/configuring-the-backup-service
+  /usr/local/share/enterprise/ghe-storage-init-backup "/dev/$REAL_DEV"
   
   EOF
 
