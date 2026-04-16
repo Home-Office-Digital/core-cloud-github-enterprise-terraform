@@ -9,15 +9,15 @@
 
 set -euo pipefail
 
-# Hostname and Slack webhook injected via terragrunt repo variables
+# Hostname and Slack webhook injected via terragrunt at build time
 GHES_HOSTNAME="${ghes_hostname}"
 SLACK_WEBHOOK_URL="${slack_webhook_url}"
 
-# acme.sh runs as root
+# acme.sh runs as root so certs are stored under /root/.acme.sh
 ACME_CERT_DIR="/root/.acme.sh/$${GHES_HOSTNAME}"
 TMP_COMBINED="/tmp/combined.pem"
 
-# AWS Secrets Manager secret names for ZeroSSL EAB credentials (these are in opstooling accounts for each env)
+# AWS Secrets Manager secret names for ZeroSSL EAB credentials
 SECRETS_MANAGER_EAB_KID_SECRET="eab-kid"
 SECRETS_MANAGER_EAB_HMAC_SECRET="eab-hmac-key"
 
@@ -31,10 +31,18 @@ LOG_FILE="/var/log/ghes-cert-renewal.log"
 WARN_DAYS=15
 RENEW_DAYS=14
 
-# How long to wait for ghe-ssl-certificate-setup
-# Retries every 30 seconds
+# How long to wait for ghe-config-apply to propagate before reading the new expiry
+# Retries every 30 seconds up to this many attempts
 APPLY_WAIT_RETRIES=10
 APPLY_WAIT_INTERVAL=30
+
+# Prevent multiple instances running simultaneously
+LOCKFILE="/tmp/cert-renewal.lock"
+if ! mkdir "$LOCKFILE" 2>/dev/null; then
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] Another instance is running. Exiting." >> "$LOG_FILE"
+  exit 0
+fi
+trap 'rm -rf "$LOCKFILE"' EXIT
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" >&2
@@ -48,7 +56,7 @@ slack_notify() {
   payload=$(printf '{"title": "%s", "message": "%s"}' "$title" "$message")
 
   local http_code
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+  http_code=$(curl -s -o /dev/null -w "%%{http_code}" \
     -X POST \
     -H 'Content-type: application/json' \
     --data "$payload" \
@@ -73,6 +81,8 @@ get_days_until_expiry() {
   echo "$motd_days"
 }
 
+# After apply, poll ghe-motd until it reports the new expiry
+# Retries every 30 seconds up to APPLY_WAIT_RETRIES attempts
 wait_and_get_expiry() {
   log "Waiting for certificate propagation before reading new expiry."
 
@@ -99,7 +109,8 @@ wait_and_get_expiry() {
   echo "unknown"
 }
 
-# Get EAB credentials from AWS Secrets Manager
+# Fetch EAB credentials from AWS Secrets Manager at runtime
+# Secrets are stored as JSON objects e.g. {"eab-kid": "value"} and {"eab-hmac-key": "value"}
 fetch_eab_credentials() {
   log "Fetching EAB credentials from AWS Secrets Manager."
 
@@ -143,6 +154,7 @@ fetch_eab_credentials() {
 }
 
 # Register acme.sh account with ZeroSSL using EAB credentials
+# Idempotent. acme.sh skips re-registration if the account already exists
 register_acme_account() {
   log "Registering acme.sh account with ZeroSSL."
 
@@ -164,7 +176,8 @@ register_acme_account() {
   log "acme.sh account registration succeeded."
 }
 
-# Issue certs
+# Issue wildcard certificate via ZeroSSL + Route53 DNS validation
+# acme.sh stores certs under /root/.acme.sh automatically, key and fullchain combined after issuance
 issue_certificate() {
   log "Issuing wildcard certificate for $${GHES_HOSTNAME} via ZeroSSL and Route53."
 
@@ -185,33 +198,44 @@ issue_certificate() {
     exit 1
   fi
 
-  # Combine into single PEM
+  # Combine key + fullchain into single PEM
   cat "$${ACME_CERT_DIR}/$${GHES_HOSTNAME}.key" "$${ACME_CERT_DIR}/fullchain.cer" > "$TMP_COMBINED"
   log "Certificate issued successfully. Combined PEM written to $${TMP_COMBINED}."
 }
 
-# Apply the cert to GHES
+# Apply the certificate to GHES using ghe-config and ghe-config-apply
+# ghe-ssl-certificate-setup requires a TTY and fails via cron
 apply_certificate() {
-  log "Applying certificate via ghe-ssl-certificate-setup."
-
-  cd /usr/local/share/enterprise
+  log "Applying certificate via ghe-config and ghe-config-apply."
 
   local output exit_code
-  output=$(./ghe-ssl-certificate-setup -c "$TMP_COMBINED" 2>&1) && exit_code=0 || exit_code=$?
+
+  output=$(ghe-config 'github-ssl.cert' "$(cat "$TMP_COMBINED")" 2>&1) && exit_code=0 || exit_code=$?
+
+  if [[ "$exit_code" -ne 0 ]]; then
+    log "ERROR: ghe-config failed to store certificate (exit $${exit_code})"
+    slack_notify "GHES Cert Apply Failed. $${GHES_HOSTNAME}" \
+      "Certificate was issued but ghe-config failed to store it. The combined PEM is at $${TMP_COMBINED} if you need to apply manually. Certificate expires in $${days} days."
+    exit 1
+  fi
+
+  log "Certificate stored in ghe-config. Running ghe-config-apply."
+
+  output=$(ghe-config-apply 2>&1) && exit_code=0 || exit_code=$?
 
   echo "$output" >> "$LOG_FILE"
 
   if [[ "$exit_code" -ne 0 ]]; then
-    log "ERROR: ghe-ssl-certificate-setup failed (exit $${exit_code})"
+    log "ERROR: ghe-config-apply failed (exit $${exit_code})"
     slack_notify "GHES Cert Apply Failed. $${GHES_HOSTNAME}" \
-      "Certificate was issued successfully but ghe-ssl-certificate-setup failed. The combined PEM is at $${TMP_COMBINED} on the instance if you need to apply manually. Certificate expires in $${days} days."
+      "Certificate was stored but ghe-config-apply failed. Certificate expires in $${days} days."
     exit 1
   fi
 
-  log "ghe-ssl-certificate-setup completed. Waiting for propagation."
+  log "ghe-config-apply completed. Waiting for propagation."
 }
 
-# Clean up
+# Clean up temp files so key material does not sit on disk
 cleanup() {
   rm -f "$TMP_COMBINED"
   log "Temporary cert files removed."
