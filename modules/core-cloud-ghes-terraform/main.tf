@@ -335,12 +335,23 @@ resource "aws_instance" "github_instance" {
     encrypted             = true
   }
 
+  # Though this disk is not required immediatly for 2nd instance, it will be helpful when promoted. 
+  # We have to make sure 2nd instance's disk has to be configured as backup only when it is promoted. As per Github, replica not good for backup.
+
+  ebs_block_device {
+    device_name           = "/dev/sdc"
+    volume_size           = var.backup_root_volume_size
+    volume_type           = "gp3"
+    encrypted             = true
+    delete_on_termination = false
+  }
+
   user_data = <<-EOF
   #!/bin/bash
   export DEBIAN_FRONTEND=noninteractive
 
   sudo apt-get update -y
-  sudo apt-get install -y docker.io wget curl unzip jq awscli
+  sudo apt-get install -y docker.io wget curl unzip jq awscli nvme-cli
 
   # Install SSM agent if not already installed
   if ! systemctl list-units --full -all | grep -q "amazon-ssm-agent.service"; then
@@ -397,6 +408,34 @@ resource "aws_instance" "github_instance" {
   chmod 644 /etc/cron.d/ghes-cert-renewal
   chown root:root /etc/cron.d/ghes-cert-renewal
 
+  # Change the backup to volume
+  get_nvme_device() {
+    local target_name=$1
+    for dev in /dev/nvme*n1; do
+      # AWS stores the device name (e.g. /dev/sdc) in the vendor-specific data
+      if nvme id-ctrl -v "$dev" | grep -q "$target_name"; then
+        echo "$dev"
+        return 0
+      fi
+    done
+    return 1
+  }
+
+  # Wait for attachment and identify the disk
+  TARGET_NAME="/dev/sdc"
+  REAL_DEV=""
+  while [ -z "$REAL_DEV" ]; do
+    REAL_DEV=$(get_nvme_device "$TARGET_NAME")
+    [ -z "$REAL_DEV" ] && sleep 2
+  done
+  if [ -f /etc/github/repl-state ] && [ "$(cat /etc/github/repl-state)" = "replica" ]; then
+    echo "This instance is configured as a replica. So no backup configured as per github advice."
+    exit 0
+  fi
+
+  # https://docs.github.com/en/enterprise-server@3.17/admin/backing-up-and-restoring-your-instance/backup-service-for-github-enterprise-server/configuring-the-backup-service
+  /usr/local/share/enterprise/ghe-storage-init-backup "/dev/$REAL_DEV"
+  
   EOF
 
   tags = merge(
@@ -423,147 +462,6 @@ resource "aws_eip" "github_eip" {
   tags = merge(
     {
       Name = "github-enterprise-server-eip-${each.key}"
-    },
-    var.common_tags
-  )
-}
-
-resource "aws_security_group" "backup_host_sg" {
-  name        = "github-backup-host-sg"
-  description = "Security group for the backup host"
-  vpc_id      = var.vpc_id
-
-  tags = merge(
-    {
-      Name = "github-backup-host-sg"
-    },
-    var.common_tags
-  )
-}
-
-resource "aws_vpc_security_group_ingress_rule" "nlb_ssh_122_from_backup_host" {
-  for_each                     = aws_security_group.nlb_sg
-  security_group_id            = each.value.id
-  from_port                    = 122
-  to_port                      = 122
-  ip_protocol                  = "tcp"
-  referenced_security_group_id = aws_security_group.backup_host_sg.id
-}
-
-resource "aws_vpc_security_group_egress_rule" "backup_host_egress_rule" {
-  security_group_id = aws_security_group.backup_host_sg.id
-  ip_protocol       = "-1"
-  cidr_ipv4         = "0.0.0.0/0"
-}
-
-
-resource "aws_instance" "backup_host" {
-  ami                    = var.backup_host_ami_id
-  instance_type          = var.backup_host_instance_type
-  subnet_id              = element(var.private_subnet_ids, 0)
-  vpc_security_group_ids = [aws_security_group.backup_host_sg.id]
-  key_name               = var.key_name
-
-  associate_public_ip_address = var.public_ip
-
-  iam_instance_profile = aws_iam_instance_profile.instance_management_profile.name
-
-  root_block_device {
-    volume_size = var.backup_root_volume_size
-    volume_type = "gp3"
-    encrypted   = true
-  }
-
-  user_data = <<-EOF
-    #!/bin/bash
-    export DEBIAN_FRONTEND=noninteractive
-
-    sudo apt-get update -y
-    sudo apt-get install -y docker.io wget curl unzip jq awscli
-
-    sudo usermod -aG docker ubuntu
-
-    newgrp docker
-
-    # Check if SSM agent is installed, enable and start it if needed
-    if ! systemctl list-units --full -all | grep -q "amazon-ssm-agent.service"; then
-      wget https://s3.amazonaws.com/ec2-downloads-windows/SSMAgent/latest/debian_amd64/amazon-ssm-agent.deb
-      sudo dpkg -i amazon-ssm-agent.deb
-    fi
-
-    if ! systemctl is-enabled amazon-ssm-agent &>/dev/null; then
-      sudo systemctl enable amazon-ssm-agent
-    fi
-
-    if ! systemctl is-active --quiet amazon-ssm-agent; then
-      sudo systemctl start amazon-ssm-agent
-    fi
-
-    # Modify SSM agent to run as ubuntu user
-    echo '{
-      "RunAsUser": "ubuntu"
-    }' | sudo tee /etc/amazon/ssm/amazon-ssm-agent.json
-
-    # Restart SSM agent to apply the changes
-    sudo systemctl restart amazon-ssm-agent
-
-    # Install CloudWatch agent
-    wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
-    sudo dpkg -i amazon-cloudwatch-agent.deb
-
-    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-        -a fetch-config -m ec2 -c ssm:${var.cloudwatch_config} -s
-
-    sudo systemctl enable amazon-cloudwatch-agent
-    sudo systemctl start amazon-cloudwatch-agent
-
-    # Authenticate with AWS ECR
-    aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${var.ecr_account_id}.dkr.ecr.${var.aws_region}.amazonaws.com
-    docker pull ${var.github_backup_image}
-  
-    chown ubuntu:ubuntu /home/ubuntu/.ssh
-    echo '${var.ssh_private_key}' > /home/ubuntu/.ssh/github_backup_key
-    
-    sed -i 's/-----BEGIN RSA PRIVATE KEY----- /-----BEGIN RSA PRIVATE KEY-----\n/' /home/ubuntu/.ssh/github_backup_key
-
-    chown ubuntu:ubuntu /home/ubuntu/.ssh/github_backup_key
-    chmod 600 /home/ubuntu/.ssh/github_backup_key
-   
-    sudo -u ubuntu docker run -d \
-      --name github-backup \
-      --restart always \
-      -v /home/ubuntu/backup-data:/data \
-      -v /home/ubuntu/.ssh/github_backup_key:/root/.ssh/github_backup_key \
-      -e GHE_HOSTNAME="${var.ghe_hostname}" \
-      -e GHE_EXTRA_SSH_OPTS="-i /root/.ssh/github_backup_key" \
-      -e S3_BUCKET="${var.s3_bucket}" \
-      "${var.github_backup_image}"
-  EOF
-
-  tags = merge(
-    {
-      Name        = "github-enterprise-server-backup-host",
-      MonitoredBy = "Dynatrace"
-    },
-    var.common_tags
-  )
-
-  monitoring = true
-  metadata_options {
-    http_tokens                 = "required" # Require token (IMDSv2 only)
-    http_endpoint               = "enabled"  # Keep metadata endpoint enabled
-    http_put_response_hop_limit = 1          # Limit hop count for PUT requests
-  }  
-}
-
-resource "aws_eip" "backup_eip" {
-  count    = var.public_eip ? 1 : 0
-  domain   = "vpc"
-  instance = aws_instance.backup_host.id
-
-  tags = merge(
-    {
-      Name = "github-backup-host-eip",
     },
     var.common_tags
   )
@@ -628,8 +526,7 @@ resource "aws_route53_record" "github_wildcard_record" {
 # Monitoring
 locals {
   instance_ids = merge(
-    { for k, v in aws_instance.github_instance : "github-${k}" => v.id },
-    { "backup-host" = aws_instance.backup_host.id }
+    { for k, v in aws_instance.github_instance : "github-${k}" => v.id }
   )
 }
 
