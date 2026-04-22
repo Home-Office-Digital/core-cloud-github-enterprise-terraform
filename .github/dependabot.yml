@@ -1,0 +1,41 @@
+
+---
+version: 2
+updates:
+    # Enable Github Action updates
+    - package-ecosystem: "github-actions"
+      directory: "/"
+      schedule:
+          interval: "daily"
+      commit-message:
+          prefix: "(GHA)"
+      labels:
+          - "dependencies"
+          - "patch"
+          - "actions"
+    
+
+    # Enable TF updates for Terraform Projects
+    - package-ecosystem: "terraform"
+      directory: "/"
+      schedule:
+          interval: "daily"
+      commit-message:
+          prefix: "(TF)"
+      labels:
+          - "dependencies"
+          - "patch"
+          - "terraform"
+
+    # Enable TF updates for modules
+    - package-ecosystem: "terraform"
+      directory: "/modules/*"
+      schedule:
+          interval: "daily"
+      commit-message:
+          prefix: "(TF)"
+      labels:
+          - "dependencies"
+          - "patch"
+          - "terraform"
+        
