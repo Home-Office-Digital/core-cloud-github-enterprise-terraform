@@ -8,7 +8,7 @@ updates:
       schedule:
           interval: "daily"
       commit-message:
-          prefix: "(GHA)"
+          prefix: "chore(GHA)"
       labels:
           - "dependencies"
           - "patch"
@@ -21,7 +21,7 @@ updates:
       schedule:
           interval: "daily"
       commit-message:
-          prefix: "(TF)"
+          prefix: "chore(TF)"
       labels:
           - "dependencies"
           - "patch"
@@ -33,7 +33,7 @@ updates:
       schedule:
           interval: "daily"
       commit-message:
-          prefix: "(TF)"
+          prefix: "chore(TF)"
       labels:
           - "dependencies"
           - "patch"
