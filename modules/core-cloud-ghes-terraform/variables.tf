@@ -39,17 +39,6 @@ variable "instance_type" {
   default     = "r5.2xlarge"
 }
 
-variable "backup_host_ami_id" {
-  description = "AMI ID for the backup host"
-  type        = string
-}
-
-variable "backup_host_instance_type" {
-  description = "EC2 instance type for the backup host"
-  type        = string
-  default     = "m5.2xlarge"
-}
-
 variable "port_to_name_map" {
   description = "Map of ports corresponding to target group names to enable key:value reference"
   type        = map(string)
