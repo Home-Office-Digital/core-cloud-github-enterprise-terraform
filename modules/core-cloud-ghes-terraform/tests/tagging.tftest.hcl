@@ -42,100 +42,100 @@ run "tagging_test" {
 
   assert {
     condition = (
-      alltrue([for _, instance in aws_instance.github_instance : contains(keys(instance.tags), "cost-centre")]) &&
-      alltrue([for _, nlb in aws_lb.nlb : contains(keys(nlb.tags), "cost-centre")]) &&
-      alltrue([for _, tg in aws_lb_target_group.tg : contains(keys(tg.tags), "cost-centre")]) &&
-      alltrue([for _, sg in aws_security_group.github_sg : contains(keys(sg.tags), "cost-centre")]) &&
-      alltrue([for _, sg in aws_security_group.nlb_sg : contains(keys(sg.tags), "cost-centre")])
+      alltrue([for _, instance in aws_instance.github_instance : lookup(instance.tags, "cost-centre", "") == "CC1000"]) &&
+      alltrue([for _, nlb in aws_lb.nlb : lookup(nlb.tags, "cost-centre", "") == "CC1000"]) &&
+      alltrue([for _, tg in aws_lb_target_group.tg : lookup(tg.tags, "cost-centre", "") == "CC1000"]) &&
+      alltrue([for _, sg in aws_security_group.github_sg : lookup(sg.tags, "cost-centre", "") == "CC1000"]) &&
+      alltrue([for _, sg in aws_security_group.nlb_sg : lookup(sg.tags, "cost-centre", "") == "CC1000"])
     )
-    error_message = "cost-centre tag must be present on tagged resources"
+    error_message = "cost-centre tag must match expected value on tagged resources"
   }
 
   assert {
     condition = (
-      alltrue([for _, instance in aws_instance.github_instance : contains(keys(instance.tags), "account-code")]) &&
-      alltrue([for _, nlb in aws_lb.nlb : contains(keys(nlb.tags), "account-code")]) &&
-      alltrue([for _, tg in aws_lb_target_group.tg : contains(keys(tg.tags), "account-code")]) &&
-      alltrue([for _, sg in aws_security_group.github_sg : contains(keys(sg.tags), "account-code")]) &&
-      alltrue([for _, sg in aws_security_group.nlb_sg : contains(keys(sg.tags), "account-code")])
+      alltrue([for _, instance in aws_instance.github_instance : lookup(instance.tags, "account-code", "") == "AC1000"]) &&
+      alltrue([for _, nlb in aws_lb.nlb : lookup(nlb.tags, "account-code", "") == "AC1000"]) &&
+      alltrue([for _, tg in aws_lb_target_group.tg : lookup(tg.tags, "account-code", "") == "AC1000"]) &&
+      alltrue([for _, sg in aws_security_group.github_sg : lookup(sg.tags, "account-code", "") == "AC1000"]) &&
+      alltrue([for _, sg in aws_security_group.nlb_sg : lookup(sg.tags, "account-code", "") == "AC1000"])
     )
-    error_message = "account-code tag must be present on tagged resources"
+    error_message = "account-code tag must match expected value on tagged resources"
   }
 
   assert {
     condition = (
-      alltrue([for _, instance in aws_instance.github_instance : contains(keys(instance.tags), "portfolio-id")]) &&
-      alltrue([for _, nlb in aws_lb.nlb : contains(keys(nlb.tags), "portfolio-id")]) &&
-      alltrue([for _, tg in aws_lb_target_group.tg : contains(keys(tg.tags), "portfolio-id")]) &&
-      alltrue([for _, sg in aws_security_group.github_sg : contains(keys(sg.tags), "portfolio-id")]) &&
-      alltrue([for _, sg in aws_security_group.nlb_sg : contains(keys(sg.tags), "portfolio-id")])
+      alltrue([for _, instance in aws_instance.github_instance : lookup(instance.tags, "portfolio-id", "") == "PF1000"]) &&
+      alltrue([for _, nlb in aws_lb.nlb : lookup(nlb.tags, "portfolio-id", "") == "PF1000"]) &&
+      alltrue([for _, tg in aws_lb_target_group.tg : lookup(tg.tags, "portfolio-id", "") == "PF1000"]) &&
+      alltrue([for _, sg in aws_security_group.github_sg : lookup(sg.tags, "portfolio-id", "") == "PF1000"]) &&
+      alltrue([for _, sg in aws_security_group.nlb_sg : lookup(sg.tags, "portfolio-id", "") == "PF1000"])
     )
-    error_message = "portfolio-id tag must be present on tagged resources"
+    error_message = "portfolio-id tag must match expected value on tagged resources"
   }
 
   assert {
     condition = (
-      alltrue([for _, instance in aws_instance.github_instance : contains(keys(instance.tags), "project-id")]) &&
-      alltrue([for _, nlb in aws_lb.nlb : contains(keys(nlb.tags), "project-id")]) &&
-      alltrue([for _, tg in aws_lb_target_group.tg : contains(keys(tg.tags), "project-id")]) &&
-      alltrue([for _, sg in aws_security_group.github_sg : contains(keys(sg.tags), "project-id")]) &&
-      alltrue([for _, sg in aws_security_group.nlb_sg : contains(keys(sg.tags), "project-id")])
+      alltrue([for _, instance in aws_instance.github_instance : lookup(instance.tags, "project-id", "") == "PR1000"]) &&
+      alltrue([for _, nlb in aws_lb.nlb : lookup(nlb.tags, "project-id", "") == "PR1000"]) &&
+      alltrue([for _, tg in aws_lb_target_group.tg : lookup(tg.tags, "project-id", "") == "PR1000"]) &&
+      alltrue([for _, sg in aws_security_group.github_sg : lookup(sg.tags, "project-id", "") == "PR1000"]) &&
+      alltrue([for _, sg in aws_security_group.nlb_sg : lookup(sg.tags, "project-id", "") == "PR1000"])
     )
-    error_message = "project-id tag must be present on tagged resources"
+    error_message = "project-id tag must match expected value on tagged resources"
   }
 
   assert {
     condition = (
-      alltrue([for _, instance in aws_instance.github_instance : contains(keys(instance.tags), "service-id")]) &&
-      alltrue([for _, nlb in aws_lb.nlb : contains(keys(nlb.tags), "service-id")]) &&
-      alltrue([for _, tg in aws_lb_target_group.tg : contains(keys(tg.tags), "service-id")]) &&
-      alltrue([for _, sg in aws_security_group.github_sg : contains(keys(sg.tags), "service-id")]) &&
-      alltrue([for _, sg in aws_security_group.nlb_sg : contains(keys(sg.tags), "service-id")])
+      alltrue([for _, instance in aws_instance.github_instance : lookup(instance.tags, "service-id", "") == "SV1000"]) &&
+      alltrue([for _, nlb in aws_lb.nlb : lookup(nlb.tags, "service-id", "") == "SV1000"]) &&
+      alltrue([for _, tg in aws_lb_target_group.tg : lookup(tg.tags, "service-id", "") == "SV1000"]) &&
+      alltrue([for _, sg in aws_security_group.github_sg : lookup(sg.tags, "service-id", "") == "SV1000"]) &&
+      alltrue([for _, sg in aws_security_group.nlb_sg : lookup(sg.tags, "service-id", "") == "SV1000"])
     )
-    error_message = "service-id tag must be present on tagged resources"
+    error_message = "service-id tag must match expected value on tagged resources"
   }
 
   assert {
     condition = (
-      alltrue([for _, instance in aws_instance.github_instance : contains(keys(instance.tags), "environment-type")]) &&
-      alltrue([for _, nlb in aws_lb.nlb : contains(keys(nlb.tags), "environment-type")]) &&
-      alltrue([for _, tg in aws_lb_target_group.tg : contains(keys(tg.tags), "environment-type")]) &&
-      alltrue([for _, sg in aws_security_group.github_sg : contains(keys(sg.tags), "environment-type")]) &&
-      alltrue([for _, sg in aws_security_group.nlb_sg : contains(keys(sg.tags), "environment-type")])
+      alltrue([for _, instance in aws_instance.github_instance : lookup(instance.tags, "environment-type", "") == "test"]) &&
+      alltrue([for _, nlb in aws_lb.nlb : lookup(nlb.tags, "environment-type", "") == "test"]) &&
+      alltrue([for _, tg in aws_lb_target_group.tg : lookup(tg.tags, "environment-type", "") == "test"]) &&
+      alltrue([for _, sg in aws_security_group.github_sg : lookup(sg.tags, "environment-type", "") == "test"]) &&
+      alltrue([for _, sg in aws_security_group.nlb_sg : lookup(sg.tags, "environment-type", "") == "test"])
     )
-    error_message = "environment-type tag must be present on tagged resources"
+    error_message = "environment-type tag must match expected value on tagged resources"
   }
 
   assert {
     condition = (
-      alltrue([for _, instance in aws_instance.github_instance : contains(keys(instance.tags), "owner-business")]) &&
-      alltrue([for _, nlb in aws_lb.nlb : contains(keys(nlb.tags), "owner-business")]) &&
-      alltrue([for _, tg in aws_lb_target_group.tg : contains(keys(tg.tags), "owner-business")]) &&
-      alltrue([for _, sg in aws_security_group.github_sg : contains(keys(sg.tags), "owner-business")]) &&
-      alltrue([for _, sg in aws_security_group.nlb_sg : contains(keys(sg.tags), "owner-business")])
+      alltrue([for _, instance in aws_instance.github_instance : lookup(instance.tags, "owner-business", "") == "test"]) &&
+      alltrue([for _, nlb in aws_lb.nlb : lookup(nlb.tags, "owner-business", "") == "test"]) &&
+      alltrue([for _, tg in aws_lb_target_group.tg : lookup(tg.tags, "owner-business", "") == "test"]) &&
+      alltrue([for _, sg in aws_security_group.github_sg : lookup(sg.tags, "owner-business", "") == "test"]) &&
+      alltrue([for _, sg in aws_security_group.nlb_sg : lookup(sg.tags, "owner-business", "") == "test"])
     )
-    error_message = "owner-business tag must be present on tagged resources"
+    error_message = "owner-business tag must match expected value on tagged resources"
   }
 
   assert {
     condition = (
-      alltrue([for _, instance in aws_instance.github_instance : contains(keys(instance.tags), "budget-holder")]) &&
-      alltrue([for _, nlb in aws_lb.nlb : contains(keys(nlb.tags), "budget-holder")]) &&
-      alltrue([for _, tg in aws_lb_target_group.tg : contains(keys(tg.tags), "budget-holder")]) &&
-      alltrue([for _, sg in aws_security_group.github_sg : contains(keys(sg.tags), "budget-holder")]) &&
-      alltrue([for _, sg in aws_security_group.nlb_sg : contains(keys(sg.tags), "budget-holder")])
+      alltrue([for _, instance in aws_instance.github_instance : lookup(instance.tags, "budget-holder", "") == "testteam"]) &&
+      alltrue([for _, nlb in aws_lb.nlb : lookup(nlb.tags, "budget-holder", "") == "testteam"]) &&
+      alltrue([for _, tg in aws_lb_target_group.tg : lookup(tg.tags, "budget-holder", "") == "testteam"]) &&
+      alltrue([for _, sg in aws_security_group.github_sg : lookup(sg.tags, "budget-holder", "") == "testteam"]) &&
+      alltrue([for _, sg in aws_security_group.nlb_sg : lookup(sg.tags, "budget-holder", "") == "testteam"])
     )
-    error_message = "budget-holder tag must be present on tagged resources"
+    error_message = "budget-holder tag must match expected value on tagged resources"
   }
 
   assert {
     condition = (
-      alltrue([for _, instance in aws_instance.github_instance : contains(keys(instance.tags), "source-repo")]) &&
-      alltrue([for _, nlb in aws_lb.nlb : contains(keys(nlb.tags), "source-repo")]) &&
-      alltrue([for _, tg in aws_lb_target_group.tg : contains(keys(tg.tags), "source-repo")]) &&
-      alltrue([for _, sg in aws_security_group.github_sg : contains(keys(sg.tags), "source-repo")]) &&
-      alltrue([for _, sg in aws_security_group.nlb_sg : contains(keys(sg.tags), "source-repo")])
+      alltrue([for _, instance in aws_instance.github_instance : lookup(instance.tags, "source-repo", "") == "Home-Office-Digital/core-cloud-github-enterprise-terraform"]) &&
+      alltrue([for _, nlb in aws_lb.nlb : lookup(nlb.tags, "source-repo", "") == "Home-Office-Digital/core-cloud-github-enterprise-terraform"]) &&
+      alltrue([for _, tg in aws_lb_target_group.tg : lookup(tg.tags, "source-repo", "") == "Home-Office-Digital/core-cloud-github-enterprise-terraform"]) &&
+      alltrue([for _, sg in aws_security_group.github_sg : lookup(sg.tags, "source-repo", "") == "Home-Office-Digital/core-cloud-github-enterprise-terraform"]) &&
+      alltrue([for _, sg in aws_security_group.nlb_sg : lookup(sg.tags, "source-repo", "") == "Home-Office-Digital/core-cloud-github-enterprise-terraform"])
     )
-    error_message = "source-repo tag must be present on tagged resources"
+    error_message = "source-repo tag must match expected value on tagged resources"
   }
 }
