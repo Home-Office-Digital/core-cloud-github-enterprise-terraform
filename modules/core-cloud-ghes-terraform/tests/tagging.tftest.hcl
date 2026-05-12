@@ -26,7 +26,7 @@ run "tagging_test" {
     ssm_logging_policy_name = "ssm-logging-policy"
     use_private_subnets     = true
     slack_webhook_url       = "https://example.com/slack-webhook"
-    
+
     common_tags = {
       "cost-centre"      = "CC1000"
       "account-code"     = "AC1000"
