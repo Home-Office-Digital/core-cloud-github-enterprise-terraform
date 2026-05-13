@@ -12,48 +12,19 @@ on:
 
 jobs:
   terraform_tests:
-    runs-on: ubuntu-latest
-
     permissions:
       id-token: write
       contents: read
       pull-requests: write
-
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Terraform Init
-        id: init
-        uses: Home-Office-Digital/core-cloud-workflow-terraform-actions/actions/init@main
-        with:
-          working-directory: "modules/core-cloud-ghes-terraform"
-          terraform-version: "1.15.0"
-          github-environment: "test-ops-tooling"
-          state-bucket: "core-cloud-github-enterprise-terraform-test"
-          state-dynamodb-table: "core-cloud-github-enterprise-terraform-test-table-tflock"
-          role-to-assume: "cc-bootstrap-tooling-resources-terragrunt-plan-role"
-          account_id: ${{ secrets.ACCOUNT_ID }}
-
-      - name: Terraform Fmt
-        id: quality-checks
-        uses: Home-Office-Digital/core-cloud-workflow-terraform-actions/actions/fmt@main
-        with:
-          working-directory: "modules/core-cloud-ghes-terraform"
-
-
-      - name: Terraform Validate
-        if: success() || failure()
-        uses: Home-Office-Digital/core-cloud-workflow-terraform-actions/actions/validate@main
-        with:
-          working-directory: "modules/core-cloud-ghes-terraform"
-          terraform-version: "1.15.0"
-
-
-      - name: Terraform Test
-        if: success() || failure()
-        uses: Home-Office-Digital/core-cloud-workflow-terraform-actions/actions/test@main
-        with:
-          working-directory: "modules/core-cloud-ghes-terraform"
-          sonar-host-url: ${{ secrets.SONAR_HOST_URL }}
-          sonar-token:  ${{ secrets.SONAR_TOKEN }}
+    uses: Home-Office-Digital/core-cloud-workflow-terraform-actions/.github/workflows/standard-pipeline.yml@main
+    with:
+      working-directory: "modules/core-cloud-ghes-terraform"
+      terraform-version: "1.15.0"
+      github-environment: "test-ops-tooling"
+      state-bucket: "core-cloud-github-enterprise-terraform-test"
+      state-dynamodb-table: "core-cloud-github-enterprise-terraform-test-table-tflock"
+      role-to-assume: "cc-bootstrap-tooling-resources-terragrunt-plan-role"
+    secrets:
+      account_id: ${{ secrets.ACCOUNT_ID }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
