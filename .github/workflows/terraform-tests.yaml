@@ -16,15 +16,11 @@ jobs:
       id-token: write
       contents: read
       pull-requests: write
-    uses: Home-Office-Digital/core-cloud-workflow-terraform-actions/.github/workflows/standard-pipeline.yml@main
+    uses: Home-Office-Digital/core-cloud-workflow-terraform-actions/.github/workflows/standard-pipeline.yml@feature/CCL-8822-terraform-backend
     with:
       working-directory: "modules/core-cloud-ghes-terraform"
+      use-backend: false
       terraform-version: "1.15.0"
-      github-environment: "test-ops-tooling"
-      state-bucket: "core-cloud-github-enterprise-terraform-test"
-      state-dynamodb-table: "core-cloud-github-enterprise-terraform-test-table-tflock"
-      role-to-assume: "cc-bootstrap-tooling-resources-terragrunt-plan-role"
     secrets:
-      account_id: ${{ secrets.ACCOUNT_ID }}
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
