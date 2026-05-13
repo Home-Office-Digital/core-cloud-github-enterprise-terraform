@@ -9,17 +9,12 @@ run "tagging_test" {
     key_name                = "ghes-key"
     allowed_cidr_ingress    = "10.0.0.0/16"
     private_subnet_ids      = ["subnet-11111111", "subnet-22222222"]
-    availability_zones      = ["eu-west-2a", "eu-west-2b"]
     ami_id                  = "ami-0123456789abcdef0"
-    github_backup_image     = "quay.io/example/ghes-backup:latest"
-    aws_region              = "eu-west-2"
-    ecr_account_id          = "123456789012"
     ghe_hostname            = "ghes.example.internal"
     s3_bucket               = "example-ghes-backups"
     root_volume_size        = 100
     ebs_volume_size         = 500
     backup_root_volume_size = 150
-    ssh_private_key         = "test-private-key"
     cloudwatch_config       = "AmazonCloudWatch-ghes-config"
     environment             = "test"
     sns_email               = "alerts@example.com"
