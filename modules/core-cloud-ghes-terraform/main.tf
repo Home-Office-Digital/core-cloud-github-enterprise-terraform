@@ -1,3 +1,26 @@
+terraform {
+  required_version = ">= 1.5.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+
+# Keep these legacy inputs referenced so existing callers can continue
+# supplying them while the module interface is gradually simplified.
+locals {
+  compatibility_inputs = {
+    availability_zones  = var.availability_zones
+    github_backup_image = var.github_backup_image
+    aws_region          = var.aws_region
+    ecr_account_id      = var.ecr_account_id
+    ssh_private_key     = var.ssh_private_key
+  }
+}
+
 data "aws_caller_identity" "current" {}
 
 data "aws_iam_role" "instance_management_role" {
