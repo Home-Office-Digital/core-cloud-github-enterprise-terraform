@@ -49,6 +49,26 @@ run "security_test" {
   }
 
   assert {
+    condition     = length(aws_vpc_security_group_ingress_rule.nlb_all_traffic_ingress) == 2 && alltrue([for _, rule in aws_vpc_security_group_ingress_rule.nlb_all_traffic_ingress : rule.ip_protocol == "-1" && rule.cidr_ipv4 == "10.0.0.0/16"])
+    error_message = "Expected VPC-wide all-traffic ingress on both NLB security groups."
+  }
+
+  assert {
+    condition     = aws_vpc_security_group_ingress_rule.primary_allow_tcp_from_secondary_ha.ip_protocol == "tcp" && aws_vpc_security_group_ingress_rule.primary_allow_tcp_from_secondary_ha.from_port == 122 && aws_vpc_security_group_ingress_rule.secondary_allow_tcp_from_primary_ha.ip_protocol == "tcp" && aws_vpc_security_group_ingress_rule.secondary_allow_tcp_from_primary_ha.from_port == 122 && aws_vpc_security_group_ingress_rule.primary_allow_udp_from_secondary_ha.ip_protocol == "udp" && aws_vpc_security_group_ingress_rule.primary_allow_udp_from_secondary_ha.from_port == 1194 && aws_vpc_security_group_ingress_rule.secondary_allow_udp_from_primary_ha.ip_protocol == "udp" && aws_vpc_security_group_ingress_rule.secondary_allow_udp_from_primary_ha.from_port == 1194
+    error_message = "Expected HA replication rules to enforce TCP 122 and UDP 1194 in both directions."
+  }
+
+  assert {
+    condition     = length(aws_vpc_security_group_egress_rule.sg_outbound) == 2 && alltrue([for _, rule in aws_vpc_security_group_egress_rule.sg_outbound : rule.ip_protocol == "-1" && rule.cidr_ipv4 == "0.0.0.0/0"])
+    error_message = "Expected all GHES security groups to allow outbound traffic to 0.0.0.0/0."
+  }
+
+  assert {
+    condition     = length(aws_vpc_security_group_egress_rule.nlb_sg_outbound) == 2 && alltrue([for _, rule in aws_vpc_security_group_egress_rule.nlb_sg_outbound : rule.ip_protocol == "-1" && rule.cidr_ipv4 == "0.0.0.0/0"])
+    error_message = "Expected all NLB security groups to allow outbound traffic to 0.0.0.0/0."
+  }
+
+  assert {
     condition     = length(aws_eip.github_eip) == 0
     error_message = "Expected no EIPs when public_eip is false."
   }
