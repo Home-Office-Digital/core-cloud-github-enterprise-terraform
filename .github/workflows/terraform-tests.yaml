@@ -16,7 +16,7 @@ jobs:
       id-token: write
       contents: read
       pull-requests: write
-    uses: Home-Office-Digital/core-cloud-workflow-terraform-actions/.github/workflows/standard-pipeline.yml@feature/CCL-8822-terraform-backend
+    uses: Home-Office-Digital/core-cloud-workflow-terraform-actions/.github/workflows/standard-pipeline.yml@main
     with:
       working-directory: "modules/core-cloud-ghes-terraform"
       use-backend: false
