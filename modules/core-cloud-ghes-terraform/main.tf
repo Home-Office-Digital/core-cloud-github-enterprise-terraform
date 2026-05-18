@@ -1,3 +1,14 @@
+terraform {
+  required_version = ">= 1.5.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+
 data "aws_caller_identity" "current" {}
 
 data "aws_iam_role" "instance_management_role" {
@@ -391,9 +402,9 @@ resource "aws_instance" "github_instance" {
   
   cat > /opt/cert-renewal.sh << 'CERTS'
   ${templatefile("${path.module}/templates/cert-renewal.sh.tpl", {
-    ghes_hostname     = var.ghe_hostname
-    slack_webhook_url = var.slack_webhook_url
-  })}
+  ghes_hostname     = var.ghe_hostname
+  slack_webhook_url = var.slack_webhook_url
+})}
   CERTS
 
   chmod 700 /opt/cert-renewal.sh
@@ -438,20 +449,20 @@ resource "aws_instance" "github_instance" {
   
   EOF
 
-  tags = merge(
-    {
-      Name        = "github-enterprise-server-${each.key}",
-      MonitoredBy = "Dynatrace"
-    },
-    var.common_tags
-  )
+tags = merge(
+  {
+    Name        = "github-enterprise-server-${each.key}",
+    MonitoredBy = "Dynatrace"
+  },
+  var.common_tags
+)
 
-  monitoring = true
-  metadata_options {
-    http_tokens                 = "required" # Require token (IMDSv2 only)
-    http_endpoint               = "enabled"  # Keep metadata endpoint enabled
-    http_put_response_hop_limit = 1          # Limit hop count for PUT requests
-  }
+monitoring = true
+metadata_options {
+  http_tokens                 = "required" # Require token (IMDSv2 only)
+  http_endpoint               = "enabled"  # Keep metadata endpoint enabled
+  http_put_response_hop_limit = 1          # Limit hop count for PUT requests
+}
 }
 
 resource "aws_eip" "github_eip" {
@@ -531,7 +542,7 @@ locals {
 }
 
 resource "aws_sns_topic" "cloudwatch_alarm_topic" {
-  name = "github-${var.environment}-cloudwatch-alarms"
+  name              = "github-${var.environment}-cloudwatch-alarms"
   kms_master_key_id = "alias/aws/sns"
 }
 

@@ -1,0 +1,26 @@
+name: Test Terraform Actions Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "modules/core-cloud-ghes-terraform/**"
+  push:
+    branches: [main]
+    paths:
+      - "modules/core-cloud-ghes-terraform/**"
+
+jobs:
+  terraform_tests:
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    uses: Home-Office-Digital/core-cloud-workflow-terraform-actions/.github/workflows/standard-pipeline.yml@main
+    with:
+      working-directory: "modules/core-cloud-ghes-terraform"
+      use-backend: false
+      terraform-version: "1.15.0"
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

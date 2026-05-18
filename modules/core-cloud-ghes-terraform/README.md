@@ -29,8 +29,6 @@ module "github_enterprise" {
   route53_record_name     = "ghes.ho.com"
   primary_weight          = 100
   secondary_weight        = 0
-  backup_host_ami_id      = "ami-0987654321abcdef"
-  backup_host_instance_type = "t3.medium"
   backup_root_volume_size = 30
   create_ses_config       = true
   ses_domain_name         = "email.prelive.ci.core.homeoffice.gov.uk"
@@ -43,13 +41,10 @@ module "github_enterprise" {
 |------|-------------|------|---------|:--------:|
 | <a name="input_ami_id"></a> [ami\_id](#input\_ami_id) | AMI ID for the GitHub Enterprise Server instances | `string` | n/a | yes |
 | <a name="input_allowed_cidr_ingress"></a> [allowed\_cidr\_ingress](#input\_allowed_cidr_ingress) | CIDR blocks allowed for ingress | `string` | n/a | yes |
-| <a name="input_backup_host_ami_id"></a> [backup\_host_ami_id](#input\_backup_host_ami_id) | AMI ID for the backup host | `string` | n/a | yes |
-| <a name="input_backup_host_instance_type"></a> [backup\_host_instance_type](#input\_backup_host_instance_type) | Instance type for the backup host | `string` | `"m5.2xlarge"` | no |
 | <a name="input_backup_root_volume_size"></a> [backup\_root_volume_size](#input\_backup_root_volume_size) | Size of the root EBS volume for the backup host in GB | `number` | n/a | yes |
 | <a name="input_cloudwatch_config"></a> [cloudwatch\_config](#input\_cloudwatch_config) | SSM parameter for CloudWatch config | `string` | n/a | yes |
 | <a name="input_ebs_volume_size"></a> [ebs\_volume_size](#input_ebs_volume_size) | Size of the attached EBS data volume in GB | `number` | n/a | yes |
 | <a name="input_environment"></a> [environment](#input\_environment) | Environment name (e.g., dev, prod) | `string` | n/a | yes |
-| <a name="input_github_backup_image"></a> [github\_backup_image](#input\_github_backup_image) | Docker image for GitHub backup | `string` | n/a | yes |
 | <a name="input_instance_type"></a> [instance\_type](#input_instance_type) | EC2 instance type for GitHub Enterprise Server | `string` | `"r5.2xlarge"` | no |
 | <a name="input_key_name"></a> [key_name](#input_key_name) | SSH key name for the instances | `string` | n/a | yes |
 | <a name="input_primary_weight"></a> [primary\_weight](#input_primary_weight) | Weight for the primary Route53 record | `number` | `100` | no |

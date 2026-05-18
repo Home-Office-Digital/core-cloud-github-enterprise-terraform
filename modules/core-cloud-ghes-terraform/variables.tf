@@ -23,10 +23,10 @@ variable "private_subnet_ids" {
   type        = list(string)
 }
 
-variable "availability_zones" {
-  description = "List of availability zones"
-  type        = list(string)
-}
+# variable "availability_zones" {
+#   description = "List of availability zones"
+#   type        = list(string)
+# }
 
 variable "ami_id" {
   description = "AMI ID for GitHub Enterprise instances"
@@ -37,17 +37,6 @@ variable "instance_type" {
   description = "EC2 instance type for GitHub Enterprise instances"
   type        = string
   default     = "r5.2xlarge"
-}
-
-variable "backup_host_ami_id" {
-  description = "AMI ID for the backup host"
-  type        = string
-}
-
-variable "backup_host_instance_type" {
-  description = "EC2 instance type for the backup host"
-  type        = string
-  default     = "m5.2xlarge"
 }
 
 variable "port_to_name_map" {
@@ -64,21 +53,21 @@ variable "port_to_name_map" {
   }
 }
 
-variable "github_backup_image" {
-  description = "Docker image for GitHub backup"
-  type        = string
-}
+# variable "github_backup_image" {
+#   description = "Docker image for GitHub backup"
+#   type        = string
+# }
 
-variable "aws_region" {
-  description = "Aws region"
-  type        = string
-  sensitive   = true
-}
-variable "ecr_account_id" {
-  description = "Aws account id"
-  type        = string
-  sensitive   = true
-}
+# variable "aws_region" {
+#   description = "Aws region"
+#   type        = string
+#   sensitive   = true
+# }
+# variable "ecr_account_id" {
+#   description = "Aws account id"
+#   type        = string
+#   sensitive   = true
+# }
 variable "ghe_hostname" {
   description = "GitHub Enterprise hostname"
   type        = string
@@ -126,11 +115,11 @@ variable "backup_root_volume_size" {
   type        = number
 }
 
-variable "ssh_private_key" {
-  description = "SSH private key for accessing GitHub Enterprise Server from the backup host"
-  type        = string
-  sensitive   = true
-}
+# variable "ssh_private_key" {
+#   description = "SSH private key for accessing GitHub Enterprise Server from the backup host"
+#   type        = string
+#   sensitive   = true
+# }
 
 variable "public_ip" {
   type    = bool

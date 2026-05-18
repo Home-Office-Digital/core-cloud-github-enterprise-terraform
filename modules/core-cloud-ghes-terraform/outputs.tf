@@ -16,10 +16,6 @@ output "nlb_arns" {
   value       = { for k, v in aws_lb.nlb : k => v.arn }
 }
 
-output "backup_host_id" {
-  value = aws_instance.backup_host.id
-}
-
 output "route53_zone_id" {
   value = length(var.route53_zone_name) > 0 ? data.aws_route53_zone.selected["selected"].zone_id : "Zone not managed by Terraform"
 }
