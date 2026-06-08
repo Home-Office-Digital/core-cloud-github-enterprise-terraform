@@ -483,7 +483,7 @@ data "aws_route53_zone" "selected" {
   for_each = length(var.route53_zone_name) > 0 ? { "selected" = var.route53_zone_name } : {}
 
   name         = each.value
-  private_zone = false
+  private_zone = can(regex("internal", lower(each.value))) ? true : false
 }
 
 resource "aws_route53_record" "github_a_record" {
