@@ -272,8 +272,8 @@ run "route53_records_enabled_test" {
     sns_email               = "alerts@example.com"
     ssm_logging_policy_name = "ssm-logging-policy"
     use_private_subnets     = true
-    route53_zone_name       = "example.com"
-    route53_record_name     = "ghes"
+    route53_zone_name       = ["example.com"]
+    route53_record_name     = ["ghes"]
     slack_webhook_url       = "https://example.com/slack-webhook"
   }
 
@@ -313,7 +313,7 @@ run "ses_config_enabled_test" {
     sns_email               = "alerts@example.com"
     ssm_logging_policy_name = "ssm-logging-policy"
     use_private_subnets     = true
-    route53_zone_name       = "example.com"
+    route53_zone_name       = ["example.com"]
     create_ses_config       = true
     ses_domain_name         = "example.com"
     slack_webhook_url       = "https://example.com/slack-webhook"

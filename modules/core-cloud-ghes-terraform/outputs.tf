@@ -17,7 +17,7 @@ output "nlb_arns" {
 }
 
 output "route53_zone_id" {
-  value = length(var.route53_zone_name) > 0 ? data.aws_route53_zone.selected["selected"].zone_id : "Zone not managed by Terraform"
+  value = length(var.route53_zone_name) > 0 ? data.aws_route53_zone.selected[var.route53_zone_name[0]].zone_id : "Zone not managed by Terraform"
 }
 
 output "ses_domain_verification_status" {

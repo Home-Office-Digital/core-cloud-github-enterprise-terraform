@@ -78,16 +78,6 @@ variable "s3_bucket" {
   type        = string
 }
 
-variable "route53_zone_name" {
-  type    = string
-  default = ""
-}
-
-variable "route53_record_name" {
-  type    = string
-  default = ""
-}
-
 variable "primary_weight" {
   description = "Weight for the primary instance"
   type        = number
@@ -188,6 +178,11 @@ variable "route53_zone_name" {
   description = "Route53 hosted zone names"
   type        = list(string)
   default     = []
+
+  validation {
+    condition     = length(var.route53_zone_name) == length(var.route53_record_name)
+    error_message = "route53_zone_name and route53_record_name must contain the same number of entries."
+  }
 }
 
 variable "route53_record_name" {
