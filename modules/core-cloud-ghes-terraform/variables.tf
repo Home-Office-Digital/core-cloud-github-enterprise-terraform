@@ -183,3 +183,15 @@ variable "slack_webhook_url" {
   type        = string
   sensitive   = true
 }
+
+variable "route53_zone_name" {
+  description = "Route53 hosted zone names"
+  type        = list(string)
+  default     = []
+}
+
+variable "route53_record_name" {
+  description = "Route53 record names"
+  type        = list(string)
+  default     = []
+}

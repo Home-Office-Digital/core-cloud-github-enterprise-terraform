@@ -480,28 +480,40 @@ resource "aws_eip" "github_eip" {
 
 # Route53 records
 data "aws_route53_zone" "selected" {
-  for_each = length(var.route53_zone_name) > 0 ? { "selected" = var.route53_zone_name } : {}
-
+  for_each = { for z in var.route53_zone_name : z => z }
   name         = each.value
   private_zone = can(regex("internal", lower(each.value))) ? true : false
 }
 
-resource "aws_route53_record" "github_a_record" {
-  for_each = length(var.route53_zone_name) > 0 && length(var.route53_record_name) > 0 ? aws_lb.nlb : {}
+locals {
+  route53_name_by_zone = zipmap(var.route53_zone_name, var.route53_record_name)
 
-  zone_id = data.aws_route53_zone.selected["selected"].zone_id
-  name    = var.route53_record_name
+  route53_matrix = {
+    for pair in setproduct(var.route53_zone_name, keys(aws_lb.nlb)) :
+    "${pair[0]}|${pair[1]}" => {
+      zone        = pair[0]
+      lb_key      = pair[1]
+      record_name = local.route53_name_by_zone[pair[0]]
+    }
+  }
+}
+
+resource "aws_route53_record" "github_a_record" {
+  for_each = local.route53_matrix
+
+  zone_id = data.aws_route53_zone.selected[each.value.zone].zone_id
+  name    = each.value.record_name
   type    = "A"
 
   weighted_routing_policy {
-    weight = each.key == "1" ? var.primary_weight : var.secondary_weight
+    weight = each.value.lb_key == "1" ? var.primary_weight : var.secondary_weight
   }
 
-  set_identifier = "server-${each.key}"
+  set_identifier = "server-${each.value.lb_key}"
 
   alias {
-    name                   = each.value.dns_name
-    zone_id                = each.value.zone_id
+    name                   = aws_lb.nlb[each.value.lb_key].dns_name
+    zone_id                = aws_lb.nlb[each.value.lb_key].zone_id
     evaluate_target_health = false
   }
 
