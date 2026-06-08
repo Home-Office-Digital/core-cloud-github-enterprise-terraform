@@ -1,5 +1,4 @@
-terraform {
-  # Pin the Terraform and provider versions this module was written for.
+terraform { 
   required_version = ">= 1.5.0"
 
   required_providers {
@@ -345,9 +344,8 @@ resource "aws_instance" "github_instance" {
     encrypted             = true
   }
 
-  # Pre-provision a second data disk for the secondary node so it can be promoted later.
-  # The backup service is only configured on promotion, not while the node is a replica.
-
+# Though this disk is not required immediatly for 2nd instance, it will be helpful when promoted. 
+  # We have to make sure 2nd instance's disk has to be configured as backup only when it is promoted. As per Github, replica not good for backup.
   ebs_block_device {
     device_name           = "/dev/sdc"
     volume_size           = var.backup_root_volume_size
