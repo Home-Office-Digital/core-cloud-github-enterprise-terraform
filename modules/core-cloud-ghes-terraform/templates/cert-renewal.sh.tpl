@@ -11,7 +11,6 @@ set -euo pipefail
 
 # Hostname and Slack webhook injected via terragrunt at build time
 GHES_HOSTNAME="${ghes_hostname}"
-ROUTE53_RECORD_NAMES_JSON='${route53_record_names_json}'
 SLACK_WEBHOOK_URL="${slack_webhook_url}"
 
 # acme.sh runs as root so certs are stored under /root/.acme.sh
@@ -187,32 +186,16 @@ register_acme_account() {
   log "acme.sh account registration succeeded."
 }
 
-# Issue wildcard certificate via ZeroSSL + Route53 DNS validation
+# Issue certificate for the canonical GHES hostname via ZeroSSL + Route53 DNS validation
 # acme.sh stores certs under /root/.acme.sh automatically, key and fullchain combined after issuance
 issue_certificate() {
-  log "Issuing wildcard certificate for $${GHES_HOSTNAME} via ZeroSSL and Route53."
-
-  local acme_domain_args
-  acme_domain_args=( -d "$${GHES_HOSTNAME}" -d "*.$${GHES_HOSTNAME}" )
-
-  while IFS= read -r san_host; do
-    [[ -z "$${san_host}" ]] && continue
-    [[ "$${san_host}" == "$${GHES_HOSTNAME}" ]] && continue
-    acme_domain_args+=( -d "$${san_host}" -d "*.$${san_host}" )
-  done < <(python3 - "$${ROUTE53_RECORD_NAMES_JSON}" <<'PY'
-import json
-import sys
-
-for value in json.loads(sys.argv[1]):
-    print(value)
-PY
-)
+  log "Issuing certificate for $${GHES_HOSTNAME} via ZeroSSL and Route53."
 
   local output exit_code
   output=$(acme.sh --issue \
     --server "$ACME_SERVER" \
     --dns dns_aws \
-    "$${acme_domain_args[@]}" \
+    -d "$${GHES_HOSTNAME}" \
     --force 2>&1) && exit_code=0 || exit_code=$?
 
   echo "$output" >> "$LOG_FILE"
