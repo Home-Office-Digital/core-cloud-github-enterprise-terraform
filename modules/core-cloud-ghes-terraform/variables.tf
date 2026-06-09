@@ -178,11 +178,6 @@ variable "route53_zone_name" {
   description = "Route53 hosted zone names"
   type        = list(string)
   default     = []
-
-  validation {
-    condition     = length(var.route53_zone_name) == length(var.route53_record_name)
-    error_message = "route53_zone_name and route53_record_name must contain the same number of entries."
-  }
 }
 
 variable "route53_record_name" {
