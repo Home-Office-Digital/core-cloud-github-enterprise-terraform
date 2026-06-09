@@ -399,8 +399,9 @@ resource "aws_instance" "github_instance" {
   
   cat > /opt/cert-renewal.sh << 'CERTS'
   ${templatefile("${path.module}/templates/cert-renewal.sh.tpl", {
-  ghes_hostname     = var.ghe_hostname
-  slack_webhook_url = var.slack_webhook_url
+  ghes_hostname            = var.ghe_hostname
+  cert_san_hostnames_json = jsonencode(var.cert_san_hostnames)
+  slack_webhook_url       = var.slack_webhook_url
 })}
   CERTS
 
