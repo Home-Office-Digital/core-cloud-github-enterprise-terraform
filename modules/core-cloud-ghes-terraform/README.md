@@ -27,6 +27,7 @@ module "github_enterprise" {
   environment             = "test"
   route53_zone_name       = "ho.com"
   route53_record_name     = "ghes.ho.com"
+  certificate_hostnames   = ["ghes.ho.com", "ghes.internal.ho.com"]
   primary_weight          = 100
   secondary_weight        = 0
   backup_root_volume_size = 30
@@ -41,6 +42,7 @@ module "github_enterprise" {
 |------|-------------|------|---------|:--------:|
 | <a name="input_ami_id"></a> [ami\_id](#input\_ami_id) | AMI ID for the GitHub Enterprise Server instances | `string` | n/a | yes |
 | <a name="input_allowed_cidr_ingress"></a> [allowed\_cidr\_ingress](#input\_allowed_cidr_ingress) | CIDR blocks allowed for ingress | `string` | n/a | yes |
+| <a name="input_certificate_hostnames"></a> [certificate\_hostnames](#input_certificate_hostnames) | Additional hostnames to include in the GHES certificate SANs | `list(string)` | `[]` | no |
 | <a name="input_backup_root_volume_size"></a> [backup\_root_volume_size](#input\_backup_root_volume_size) | Size of the root EBS volume for the backup host in GB | `number` | n/a | yes |
 | <a name="input_cloudwatch_config"></a> [cloudwatch\_config](#input\_cloudwatch_config) | SSM parameter for CloudWatch config | `string` | n/a | yes |
 | <a name="input_ebs_volume_size"></a> [ebs\_volume_size](#input_ebs_volume_size) | Size of the attached EBS data volume in GB | `number` | n/a | yes |

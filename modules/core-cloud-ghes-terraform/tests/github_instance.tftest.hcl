@@ -93,6 +93,7 @@ run "public_subnet_and_eip_test" {
     public_subnet_ids       = ["subnet-33333333", "subnet-44444444"]
     ami_id                  = "ami-0123456789abcdef0"
     ghe_hostname            = "ghes.example.internal"
+    certificate_hostnames   = ["ghes.example.internal", "ghes.example.com"]
     s3_bucket               = "example-ghes-backups"
     root_volume_size        = 100
     ebs_volume_size         = 500
@@ -290,6 +291,11 @@ run "route53_records_enabled_test" {
   assert {
     condition     = output.route53_zone_id != "Zone not managed by Terraform"
     error_message = "Expected Route53 output to report managed zone when zone variables are provided."
+  }
+
+  assert {
+    condition     = contains(aws_instance.github_instance["1"].user_data, "ghes.example.internal") && contains(aws_instance.github_instance["1"].user_data, "ghes.example.com")
+    error_message = "Expected cert renewal script to include both configured certificate hostnames."
   }
 }
 

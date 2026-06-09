@@ -73,6 +73,12 @@ variable "ghe_hostname" {
   type        = string
 }
 
+variable "certificate_hostnames" {
+  description = "Additional hostnames to include in the GHES certificate SANs"
+  type        = list(string)
+  default     = []
+}
+
 variable "s3_bucket" {
   description = "S3 bucket for backup"
   type        = string
