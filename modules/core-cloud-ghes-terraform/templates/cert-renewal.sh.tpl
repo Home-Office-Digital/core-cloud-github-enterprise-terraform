@@ -31,6 +31,7 @@ LOG_FILE="/var/log/ghes-cert-renewal.log"
 # Days before expiry to warn and renew
 WARN_DAYS=15
 RENEW_DAYS=14
+MANUAL_RENEW="${MANUAL_RENEW:-false}"
 
 # How long to wait for ghe-config-apply to propagate before reading the new expiry
 # Retries every 30 seconds up to this many attempts
@@ -270,7 +271,23 @@ main() {
     exit 1
   fi
 
-  if [[ "$days" -eq "$WARN_DAYS" ]]; then
+  if [[ "$${MANUAL_RENEW}" == "true" ]]; then
+    log "MANUAL_RENEW enabled. Starting renewal process immediately."
+
+    fetch_eab_credentials
+    register_acme_account
+    issue_certificate
+    apply_certificate
+    cleanup
+
+    local new_expiry
+    new_expiry=$(wait_and_get_expiry)
+    log "Manual renewal complete. Certificate now expires in $${new_expiry}."
+
+    slack_notify "GHES Certificate Renewed. $${GHES_HOSTNAME}" \
+      "The TLS certificate for $${GHES_HOSTNAME} has been successfully renewed (manual run). Certificate now expires in $${new_expiry}. Propagation can take up to 5 minutes."
+
+  elif [[ "$days" -eq "$WARN_DAYS" ]]; then
     log "Certificate expires in $${days} days. Sending advance warning."
     slack_notify "GHES Certificate Expiry Warning. $${GHES_HOSTNAME}" \
       "The TLS certificate for $${GHES_HOSTNAME} expires in $${days} days. Automatic renewal will be attempted tomorrow at the scheduled cron time. No action required unless you want to renew earlier."
