@@ -532,7 +532,7 @@ resource "aws_route53_record" "github_wildcard_record" {
     weight = each.value.lb_key == "1" ? var.primary_weight : var.secondary_weight
   }
 
-  set_identifier = "wildcard-${each.value.lb_key}"
+  set_identifier = "wildcard-${each.value.lb_key}${can(regex("internal", lower(each.value.zone))) ? "-internal" : ""}"
 
   alias {
     name                   = aws_lb.nlb[each.value.lb_key].dns_name
