@@ -31,7 +31,9 @@ LOG_FILE="/var/log/ghes-cert-renewal.log"
 # Days before expiry to warn and renew
 WARN_DAYS=15
 RENEW_DAYS=14
-MANUAL_RENEW="$${MANUAL_RENEW:-false}"
+
+# Treat instances younger than this as brand new and issue a certificate immediately.
+NEW_INSTANCE_MAX_UPTIME_SECONDS=172800
 
 # How long to wait for ghe-config-apply to propagate before reading the new expiry
 # Retries every 30 seconds up to this many attempts
@@ -81,6 +83,13 @@ get_days_until_expiry() {
   fi
 
   echo "$motd_days"
+}
+
+is_new_instance() {
+  local uptime_seconds
+  uptime_seconds=$(cut -d. -f1 /proc/uptime 2>/dev/null || echo "0")
+
+  [[ "$uptime_seconds" -lt "$NEW_INSTANCE_MAX_UPTIME_SECONDS" ]]
 }
 
 # After apply, poll ghe-motd until it reports the new expiry
@@ -258,30 +267,41 @@ cleanup() {
   log "Temporary cert files removed."
 }
 
+run_renewal() {
+  local reason="$1"
+  local success_message="$2"
+
+  log "$reason"
+
+  fetch_eab_credentials
+  register_acme_account
+  issue_certificate
+  apply_certificate
+  cleanup
+
+  local new_expiry
+  new_expiry=$(wait_and_get_expiry)
+  log "$success_message Certificate now expires in $${new_expiry}."
+
+  slack_notify "GHES Certificate Renewed. $${GHES_HOSTNAME}" \
+    "$success_message Certificate now expires in $${new_expiry}. Propagation can take up to 5 minutes."
+}
+
 main() {
   log "Starting cert check for $${GHES_HOSTNAME}"
+
+  if is_new_instance; then
+    run_renewal \
+      "Instance uptime is below the new-instance threshold. Starting initial certificate issuance." \
+      "The TLS certificate for $${GHES_HOSTNAME} has been successfully issued for a new instance."
+    return
+  fi
 
   local days
   days=$(get_days_until_expiry)
   log "Days until expiry: $${days}"
 
-  if [[ "$${MANUAL_RENEW}" == "true" ]]; then
-    log "MANUAL_RENEW enabled. Starting renewal process immediately."
-
-    fetch_eab_credentials
-    register_acme_account
-    issue_certificate
-    apply_certificate
-    cleanup
-
-    local new_expiry
-    new_expiry=$(wait_and_get_expiry)
-    log "Manual renewal complete. Certificate now expires in $${new_expiry}."
-
-    slack_notify "GHES Certificate Renewed. $${GHES_HOSTNAME}" \
-      "The TLS certificate for $${GHES_HOSTNAME} has been successfully renewed (manual run). Certificate now expires in $${new_expiry}. Propagation can take up to 5 minutes."
-
-  elif [[ "$days" -eq -1 ]]; then
+  if [[ "$days" -eq -1 ]]; then
     slack_notify "GHES Cert Check Failed. $${GHES_HOSTNAME}" \
       "Could not read certificate expiry from ghe-motd. Manual investigation required."
     exit 1
@@ -292,20 +312,9 @@ main() {
       "The TLS certificate for $${GHES_HOSTNAME} expires in $${days} days. Automatic renewal will be attempted tomorrow at the scheduled cron time. No action required unless you want to renew earlier."
 
   elif [[ "$days" -eq "$RENEW_DAYS" ]]; then
-    log "Certificate expires in $${days} days. Starting renewal process."
-
-    fetch_eab_credentials
-    register_acme_account
-    issue_certificate
-    apply_certificate
-    cleanup
-
-    local new_expiry
-    new_expiry=$(wait_and_get_expiry)
-    log "Renewal complete. Certificate now expires in $${new_expiry}."
-
-    slack_notify "GHES Certificate Renewed. $${GHES_HOSTNAME}" \
-      "The TLS certificate for $${GHES_HOSTNAME} has been successfully renewed. Certificate now expires in $${new_expiry}. Propagation can take up to 5 minutes."
+    run_renewal \
+      "Certificate expires in $${days} days. Starting renewal process." \
+      "The TLS certificate for $${GHES_HOSTNAME} has been successfully renewed."
 
   else
     log "Certificate expires in $${days} days. No action required."

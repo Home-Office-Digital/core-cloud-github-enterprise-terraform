@@ -417,8 +417,8 @@ resource "aws_instance" "github_instance" {
   chmod 644 /etc/cron.d/ghes-cert-renewal
   chown root:root /etc/cron.d/ghes-cert-renewal
 
-  # One-time cert issuance attempt during boot; daily cron handles ongoing renewals.
-  MANUAL_RENEW=true /opt/cert-renewal.sh >> /var/log/ghes-cert-bootstrap.log 2>&1 || true
+  # Run once during first boot; the script decides whether this is a new instance.
+  /opt/cert-renewal.sh >> /var/log/ghes-cert-renewal.log 2>&1 || true
 
   # Find the attached NVMe device that corresponds to /dev/sdc.
   get_nvme_device() {
