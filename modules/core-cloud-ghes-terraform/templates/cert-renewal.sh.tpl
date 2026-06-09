@@ -11,7 +11,7 @@ set -euo pipefail
 
 # Hostname and Slack webhook injected via terragrunt at build time
 GHES_HOSTNAME="${ghes_hostname}"
-CERT_SAN_HOSTNAMES_JSON='${cert_san_hostnames_json}'
+ROUTE53_RECORD_NAMES_JSON='${route53_record_names_json}'
 SLACK_WEBHOOK_URL="${slack_webhook_url}"
 
 # acme.sh runs as root so certs are stored under /root/.acme.sh
@@ -189,7 +189,7 @@ issue_certificate() {
     [[ -z "$${san_host}" ]] && continue
     [[ "$${san_host}" == "$${GHES_HOSTNAME}" ]] && continue
     acme_domain_args+=( -d "$${san_host}" -d "*.$${san_host}" )
-  done < <(python3 - "$${CERT_SAN_HOSTNAMES_JSON}" <<'PY'
+  done < <(python3 - "$${ROUTE53_RECORD_NAMES_JSON}" <<'PY'
 import json
 import sys
 

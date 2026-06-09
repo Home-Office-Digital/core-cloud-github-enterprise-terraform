@@ -174,12 +174,6 @@ variable "slack_webhook_url" {
   sensitive   = true
 }
 
-variable "cert_san_hostnames" {
-  description = "Additional hostnames to include in GHES TLS certificate SANs"
-  type        = list(string)
-  default     = []
-}
-
 variable "route53_zone_name" {
   description = "Route53 hosted zone names"
   type        = list(string)
