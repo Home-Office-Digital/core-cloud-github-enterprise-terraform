@@ -265,12 +265,6 @@ main() {
   days=$(get_days_until_expiry)
   log "Days until expiry: $${days}"
 
-  if [[ "$days" -eq -1 ]]; then
-    slack_notify "GHES Cert Check Failed. $${GHES_HOSTNAME}" \
-      "Could not read certificate expiry from ghe-motd. Manual investigation required."
-    exit 1
-  fi
-
   if [[ "$${MANUAL_RENEW}" == "true" ]]; then
     log "MANUAL_RENEW enabled. Starting renewal process immediately."
 
@@ -286,6 +280,11 @@ main() {
 
     slack_notify "GHES Certificate Renewed. $${GHES_HOSTNAME}" \
       "The TLS certificate for $${GHES_HOSTNAME} has been successfully renewed (manual run). Certificate now expires in $${new_expiry}. Propagation can take up to 5 minutes."
+
+  elif [[ "$days" -eq -1 ]]; then
+    slack_notify "GHES Cert Check Failed. $${GHES_HOSTNAME}" \
+      "Could not read certificate expiry from ghe-motd. Manual investigation required."
+    exit 1
 
   elif [[ "$days" -eq "$WARN_DAYS" ]]; then
     log "Certificate expires in $${days} days. Sending advance warning."
