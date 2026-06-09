@@ -31,7 +31,7 @@ LOG_FILE="/var/log/ghes-cert-renewal.log"
 # Days before expiry to warn and renew
 WARN_DAYS=15
 RENEW_DAYS=14
-MANUAL_RENEW="${MANUAL_RENEW:-false}"
+MANUAL_RENEW="$${MANUAL_RENEW:-false}"
 
 # How long to wait for ghe-config-apply to propagate before reading the new expiry
 # Retries every 30 seconds up to this many attempts
