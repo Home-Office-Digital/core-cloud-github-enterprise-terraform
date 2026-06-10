@@ -465,6 +465,9 @@ resource "aws_instance" "github_instance" {
   
   EOF
 
+  # Ensure user_data changes create fresh instances so cloud-init reruns.
+  user_data_replace_on_change = true
+
 tags = merge(
   {
     Name        = "github-enterprise-server-${each.key}",
