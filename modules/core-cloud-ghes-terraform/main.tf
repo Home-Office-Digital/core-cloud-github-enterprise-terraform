@@ -322,12 +322,6 @@ locals {
     ghes_hostname     = var.ghe_hostname
     slack_webhook_url = var.slack_webhook_url
   }))
-
-  cert_bootstrap_script_gz_b64 = base64gzip(templatefile("${path.module}/templates/cert-bootstrap.sh.tpl", {
-    ghes_hostname      = var.ghe_hostname
-    route53_zone_names = var.route53_zone_name
-    slack_webhook_url  = var.slack_webhook_url
-  }))
 }
 
 resource "aws_instance" "github_instance" {
@@ -415,15 +409,6 @@ resource "aws_instance" "github_instance" {
   CERTS_B64
 
   chmod 700 /opt/cert-renewal.sh
-
-  cat <<'CERTBOOT_B64' | base64 -d | gunzip > /opt/cert-bootstrap.sh
-  ${local.cert_bootstrap_script_gz_b64}
-  CERTBOOT_B64
-
-  chmod 700 /opt/cert-bootstrap.sh
-
-  # Initial certificate setup at startup (separate from scheduled renewals).
-  /opt/cert-bootstrap.sh >> /var/log/ghes-cert-bootstrap.log 2>&1
 
   # Install cron job to run daily at 07:00 UTC
   cat > /etc/cron.d/ghes-cert-renewal << 'CRONFILE'
