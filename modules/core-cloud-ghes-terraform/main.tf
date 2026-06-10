@@ -483,6 +483,17 @@ data "aws_route53_zone" "selected" {
   private_zone = can(regex("internal", lower(each.value))) ? true : false
 }
 
+# For internal zones, also resolve the matching public hosted zone.
+data "aws_route53_zone" "internal_public" {
+  for_each = {
+    for zone_name in var.route53_zone_name :
+    zone_name => zone_name if can(regex("internal", lower(zone_name)))
+  }
+
+  name         = each.value
+  private_zone = false
+}
+
 locals {
   route53_primary_zone_name = length(var.route53_zone_name) > 0 ? var.route53_zone_name[0] : null
 
@@ -495,6 +506,11 @@ locals {
       lb_key      = pair[1]
       record_name = local.route53_name_by_zone[pair[0]]
     }
+  }
+
+  internal_route53_matrix = {
+    for k, v in local.route53_matrix :
+    k => v if can(regex("internal", lower(v.zone)))
   }
 }
 
@@ -534,6 +550,55 @@ resource "aws_route53_record" "github_wildcard_record" {
   }
 
   set_identifier = "wildcard-${each.value.lb_key}${can(regex("internal", lower(each.value.zone))) ? "-internal" : ""}"
+
+  alias {
+    name                   = aws_lb.nlb[each.value.lb_key].dns_name
+    zone_id                = aws_lb.nlb[each.value.lb_key].zone_id
+    evaluate_target_health = false
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Internal zones: create matching records in public hosted zones for ACME visibility.
+resource "aws_route53_record" "github_internal_public_a_record" {
+  for_each = local.internal_route53_matrix
+
+  zone_id = data.aws_route53_zone.internal_public[each.value.zone].zone_id
+  name    = each.value.record_name
+  type    = "A"
+
+  weighted_routing_policy {
+    weight = each.value.lb_key == "1" ? var.primary_weight : var.secondary_weight
+  }
+
+  set_identifier = "server-${each.value.lb_key}-public"
+
+  alias {
+    name                   = aws_lb.nlb[each.value.lb_key].dns_name
+    zone_id                = aws_lb.nlb[each.value.lb_key].zone_id
+    evaluate_target_health = false
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "github_internal_public_wildcard_record" {
+  for_each = local.internal_route53_matrix
+
+  zone_id = data.aws_route53_zone.internal_public[each.value.zone].zone_id
+  name    = "*.${each.value.record_name}"
+  type    = "A"
+
+  weighted_routing_policy {
+    weight = each.value.lb_key == "1" ? var.primary_weight : var.secondary_weight
+  }
+
+  set_identifier = "wildcard-${each.value.lb_key}-internal-public"
 
   alias {
     name                   = aws_lb.nlb[each.value.lb_key].dns_name
