@@ -73,6 +73,11 @@ variable "ghe_hostname" {
   type        = string
 }
 
+variable "ghe_hostname_internal" {
+  description = "GitHub Enterprise internal hostname"
+  type        = string
+}
+
 variable "s3_bucket" {
   description = "S3 bucket for backup"
   type        = string

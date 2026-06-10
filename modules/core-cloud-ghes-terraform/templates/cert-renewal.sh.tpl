@@ -11,6 +11,7 @@ set -euo pipefail
 
 # Hostname and Slack webhook injected via terragrunt at build time
 GHES_HOSTNAME="${ghes_hostname}"
+GHES_HOSTNAME_INTERNAL="${ghes_hostname_internal}"
 SLACK_WEBHOOK_URL="${slack_webhook_url}"
 
 # acme.sh runs as root so certs are stored under /root/.acme.sh
@@ -29,7 +30,7 @@ LOG_FILE="/var/log/ghes-cert-renewal.log"
 
 # Days before expiry to warn and renew
 WARN_DAYS=15
-RENEW_DAYS=14
+RENEW_DAYS=364 # to change back to 14
 
 # How long to wait for ghe-config-apply to propagate before reading the new expiry
 # Retries every 30 seconds up to this many attempts
@@ -186,7 +187,9 @@ issue_certificate() {
     --server "$ACME_SERVER" \
     --dns dns_aws \
     -d "$${GHES_HOSTNAME}" \
+    -d "$${GHES_HOSTNAME_INTERNAL}" \
     -d "*.$${GHES_HOSTNAME}" \
+    -d "*.$${GHES_HOSTNAME_INTERNAL}" \
     --force 2>&1) && exit_code=0 || exit_code=$?
 
   echo "$output" >> "$LOG_FILE"
