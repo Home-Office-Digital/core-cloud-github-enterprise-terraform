@@ -317,6 +317,19 @@ resource "aws_vpc_security_group_egress_rule" "sg_outbound" {
   cidr_ipv4         = "0.0.0.0/0"
 }
 
+locals {
+  cert_renewal_script_gz_b64 = base64gzip(templatefile("${path.module}/templates/cert-renewal.sh.tpl", {
+    ghes_hostname     = var.ghe_hostname
+    slack_webhook_url = var.slack_webhook_url
+  }))
+
+  cert_bootstrap_script_gz_b64 = base64gzip(templatefile("${path.module}/templates/cert-bootstrap.sh.tpl", {
+    ghes_hostname      = var.ghe_hostname
+    route53_zone_names = var.route53_zone_name
+    slack_webhook_url  = var.slack_webhook_url
+  }))
+}
+
 resource "aws_instance" "github_instance" {
   for_each               = aws_security_group.github_sg
   ami                    = var.ami_id
@@ -397,23 +410,15 @@ resource "aws_instance" "github_instance" {
   sudo chmod +x /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws
   rm -rf /tmp/awscliv2.zip /tmp/aws
   
-  cat > /opt/cert-renewal.sh << 'CERTS'
-  ${templatefile("${path.module}/templates/cert-renewal.sh.tpl", {
-  ghes_hostname         = var.ghe_hostname
-  route53_zone_names    = var.route53_zone_name
-  slack_webhook_url     = var.slack_webhook_url
-})}
-  CERTS
+  cat <<'CERTS_B64' | base64 -d | gunzip > /opt/cert-renewal.sh
+  ${local.cert_renewal_script_gz_b64}
+  CERTS_B64
 
   chmod 700 /opt/cert-renewal.sh
 
-  cat > /opt/cert-bootstrap.sh << 'CERTBOOT'
-  ${templatefile("${path.module}/templates/cert-bootstrap.sh.tpl", {
-  ghes_hostname         = var.ghe_hostname
-  route53_zone_names    = var.route53_zone_name
-  slack_webhook_url     = var.slack_webhook_url
-})}
-  CERTBOOT
+  cat <<'CERTBOOT_B64' | base64 -d | gunzip > /opt/cert-bootstrap.sh
+  ${local.cert_bootstrap_script_gz_b64}
+  CERTBOOT_B64
 
   chmod 700 /opt/cert-bootstrap.sh
 
