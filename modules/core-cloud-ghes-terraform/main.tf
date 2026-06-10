@@ -400,7 +400,6 @@ resource "aws_instance" "github_instance" {
   cat > /opt/cert-renewal.sh << 'CERTS'
   ${templatefile("${path.module}/templates/cert-renewal.sh.tpl", {
   ghes_hostname         = var.ghe_hostname
-  certificate_hostnames = jsonencode(local.certificate_hostnames)
   slack_webhook_url     = var.slack_webhook_url
 })}
   CERTS
@@ -485,8 +484,6 @@ data "aws_route53_zone" "selected" {
 
 locals {
   route53_primary_zone_name = length(var.route53_zone_name) > 0 ? var.route53_zone_name[0] : null
-
-  certificate_hostnames = distinct(compact(concat([var.ghe_hostname], var.certificate_hostnames)))
 
   route53_name_by_zone = zipmap(var.route53_zone_name, var.route53_record_name)
 
