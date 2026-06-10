@@ -317,13 +317,6 @@ resource "aws_vpc_security_group_egress_rule" "sg_outbound" {
   cidr_ipv4         = "0.0.0.0/0"
 }
 
-locals {
-  cert_renewal_script_gz_b64 = base64gzip(templatefile("${path.module}/templates/cert-renewal.sh.tpl", {
-    ghes_hostname     = var.ghe_hostname
-    slack_webhook_url = var.slack_webhook_url
-  }))
-}
-
 resource "aws_instance" "github_instance" {
   for_each               = aws_security_group.github_sg
   ami                    = var.ami_id
@@ -404,9 +397,12 @@ resource "aws_instance" "github_instance" {
   sudo chmod +x /usr/local/aws-cli/v2/current/bin/aws /usr/local/bin/aws
   rm -rf /tmp/awscliv2.zip /tmp/aws
   
-  cat <<'CERTS_B64' | base64 -d | gunzip > /opt/cert-renewal.sh
-  ${local.cert_renewal_script_gz_b64}
-  CERTS_B64
+  cat > /opt/cert-renewal.sh << 'CERTS'
+  ${templatefile("${path.module}/templates/cert-renewal.sh.tpl", {
+  ghes_hostname     = var.ghe_hostname
+  slack_webhook_url = var.slack_webhook_url
+})}
+  CERTS
 
   chmod 700 /opt/cert-renewal.sh
 
@@ -449,9 +445,6 @@ resource "aws_instance" "github_instance" {
   /usr/local/share/enterprise/ghe-storage-init-backup "/dev/$REAL_DEV"
   
   EOF
-
-  # Ensure user_data changes create fresh instances so cloud-init reruns.
-  user_data_replace_on_change = true
 
 tags = merge(
   {
