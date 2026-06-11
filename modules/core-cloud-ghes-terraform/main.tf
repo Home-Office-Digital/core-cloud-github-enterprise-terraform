@@ -480,17 +480,6 @@ resource "aws_eip" "github_eip" {
 data "aws_route53_zone" "selected" {
   for_each = { for zone_name in var.route53_zone_name : zone_name => zone_name }
   name         = each.value
-  private_zone = can(regex("internal", lower(each.value))) ? true : false
-}
-
-# For internal zones, also resolve the matching public hosted zone.
-data "aws_route53_zone" "internal_public" {
-  for_each = {
-    for zone_name in var.route53_zone_name :
-    zone_name => zone_name if can(regex("internal", lower(zone_name)))
-  }
-
-  name         = each.value
   private_zone = false
 }
 
@@ -566,7 +555,7 @@ resource "aws_route53_record" "github_wildcard_record" {
 resource "aws_route53_record" "github_internal_public_a_record" {
   for_each = local.internal_route53_matrix
 
-  zone_id = data.aws_route53_zone.internal_public[each.value.zone].zone_id
+  zone_id = data.aws_route53_zone.selected[each.value.zone].zone_id
   name    = each.value.record_name
   type    = "A"
 
@@ -590,7 +579,7 @@ resource "aws_route53_record" "github_internal_public_a_record" {
 resource "aws_route53_record" "github_internal_public_wildcard_record" {
   for_each = local.internal_route53_matrix
 
-  zone_id = data.aws_route53_zone.internal_public[each.value.zone].zone_id
+  zone_id = data.aws_route53_zone.selected[each.value.zone].zone_id
   name    = "*.${each.value.record_name}"
   type    = "A"
 
