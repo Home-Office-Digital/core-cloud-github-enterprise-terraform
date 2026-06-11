@@ -525,7 +525,7 @@ resource "aws_route53_record" "github_a_record" {
     weight = each.value.lb_key == "1" ? var.primary_weight : var.secondary_weight
   }
 
-  set_identifier = "server-${each.value.lb_key}"
+  set_identifier = "wildcard-${each.value.lb_key}"
 
   alias {
     name                   = aws_lb.nlb[each.value.lb_key].dns_name
@@ -574,7 +574,7 @@ resource "aws_route53_record" "github_internal_public_a_record" {
     weight = each.value.lb_key == "1" ? var.primary_weight : var.secondary_weight
   }
 
-  set_identifier = "server-${each.value.lb_key}-public"
+  set_identifier = "wildcard-${each.value.lb_key}-public"
 
   alias {
     name                   = aws_lb.nlb[each.value.lb_key].dns_name
