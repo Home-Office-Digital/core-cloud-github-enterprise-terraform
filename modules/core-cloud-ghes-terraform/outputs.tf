@@ -17,7 +17,17 @@ output "nlb_arns" {
 }
 
 output "route53_zone_id" {
-  value = length(var.route53_zone_name) > 0 ? data.aws_route53_zone.selected[var.route53_zone_name[0]].zone_id : "Zone not managed by Terraform"
+  value = length(var.route53_zone_name) > 0 ? data.aws_route53_zone.selected[0].zone_id : "Zone not managed by Terraform"
+}
+
+output "ghes_record_fqdn" {
+  description = "Configured GHES hostname FQDN"
+  value       = length(var.route53_zone_name) > 0 && length(var.route53_record_name) > 0 ? "${var.route53_record_name[0]}.${var.route53_zone_name[0]}" : null
+}
+
+output "ghes_wildcard_record_fqdn" {
+  description = "Configured GHES wildcard hostname FQDN"
+  value       = length(var.route53_zone_name) > 0 && length(var.route53_record_name) > 0 ? "*.${var.route53_record_name[0]}.${var.route53_zone_name[0]}" : null
 }
 
 output "ses_domain_verification_status" {
