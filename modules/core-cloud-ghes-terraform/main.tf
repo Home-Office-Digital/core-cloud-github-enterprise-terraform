@@ -478,35 +478,27 @@ resource "aws_eip" "github_eip" {
 
 # Route53 records
 data "aws_route53_zone" "selected" {
-  for_each = { for zone_name in var.route53_zone_name : zone_name => zone_name }
-  name         = each.value
+  count        = length(var.route53_zone_name) > 0 ? 1 : 0
+  name         = var.route53_zone_name[0]
   private_zone = false
 }
 
 locals {
-  route53_primary_zone_name = length(var.route53_zone_name) > 0 ? var.route53_zone_name[0] : null
+  route53_record_name = length(var.route53_record_name) > 0 ? var.route53_record_name[0] : null
 
-  route53_name_by_zone = zipmap(var.route53_zone_name, var.route53_record_name)
-
-  route53_matrix = {
-    for pair in setproduct(var.route53_zone_name, keys(aws_lb.nlb)) :
-    "${pair[0]}|${pair[1]}" => {
-      zone        = pair[0]
-      lb_key      = pair[1]
-      record_name = local.route53_name_by_zone[pair[0]]
+  route53_matrix = length(var.route53_zone_name) > 0 && local.route53_record_name != null ? {
+    for lb_key in keys(aws_lb.nlb) :
+    lb_key => {
+      lb_key      = lb_key
+      record_name = local.route53_record_name
     }
-  }
-
-  internal_route53_matrix = {
-    for k, v in local.route53_matrix :
-    k => v if can(regex("internal", lower(v.zone)))
-  }
+  } : {}
 }
 
 resource "aws_route53_record" "github_a_record" {
   for_each = local.route53_matrix
 
-  zone_id = data.aws_route53_zone.selected[each.value.zone].zone_id
+  zone_id = data.aws_route53_zone.selected[0].zone_id
   name    = each.value.record_name
   type    = "A"
 
@@ -530,7 +522,7 @@ resource "aws_route53_record" "github_a_record" {
 resource "aws_route53_record" "github_wildcard_record" {
   for_each = local.route53_matrix
 
-  zone_id = data.aws_route53_zone.selected[each.value.zone].zone_id
+  zone_id = data.aws_route53_zone.selected[0].zone_id
   name    = "*.${each.value.record_name}"
   type    = "A"
 
@@ -538,56 +530,7 @@ resource "aws_route53_record" "github_wildcard_record" {
     weight = each.value.lb_key == "1" ? var.primary_weight : var.secondary_weight
   }
 
-  set_identifier = "wildcard-${each.value.lb_key}${can(regex("internal", lower(each.value.zone))) ? "-internal" : ""}"
-
-  alias {
-    name                   = aws_lb.nlb[each.value.lb_key].dns_name
-    zone_id                = aws_lb.nlb[each.value.lb_key].zone_id
-    evaluate_target_health = false
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-# Internal zones: create matching records in public hosted zones for ACME visibility.
-resource "aws_route53_record" "github_internal_public_a_record" {
-  for_each = local.internal_route53_matrix
-
-  zone_id = data.aws_route53_zone.selected[each.value.zone].zone_id
-  name    = each.value.record_name
-  type    = "A"
-
-  weighted_routing_policy {
-    weight = each.value.lb_key == "1" ? var.primary_weight : var.secondary_weight
-  }
-
-  set_identifier = "server-${each.value.lb_key}-public"
-
-  alias {
-    name                   = aws_lb.nlb[each.value.lb_key].dns_name
-    zone_id                = aws_lb.nlb[each.value.lb_key].zone_id
-    evaluate_target_health = false
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-resource "aws_route53_record" "github_internal_public_wildcard_record" {
-  for_each = local.internal_route53_matrix
-
-  zone_id = data.aws_route53_zone.selected[each.value.zone].zone_id
-  name    = "*.${each.value.record_name}"
-  type    = "A"
-
-  weighted_routing_policy {
-    weight = each.value.lb_key == "1" ? var.primary_weight : var.secondary_weight
-  }
-
-  set_identifier = "wildcard-${each.value.lb_key}-internal-public"
+  set_identifier = "wildcard-${each.value.lb_key}"
 
   alias {
     name                   = aws_lb.nlb[each.value.lb_key].dns_name
@@ -691,7 +634,7 @@ resource "aws_ses_domain_mail_from" "mail_from" {
 }
 resource "aws_route53_record" "ses_verification" {
   count   = var.create_ses_config && length(var.route53_zone_name) > 0 ? 1 : 0
-  zone_id = data.aws_route53_zone.selected[local.route53_primary_zone_name].zone_id
+  zone_id = data.aws_route53_zone.selected[0].zone_id
   name    = "_amazonses.${var.ses_domain_name}"
   type    = "TXT"
   ttl     = "600"
@@ -706,7 +649,7 @@ resource "aws_ses_domain_identity_verification" "domain_verification" {
 
 resource "aws_route53_record" "ses_dkim" {
   count           = var.create_ses_config && length(var.route53_zone_name) > 0 ? 3 : 0
-  zone_id         = data.aws_route53_zone.selected[local.route53_primary_zone_name].zone_id
+  zone_id         = data.aws_route53_zone.selected[0].zone_id
   name            = "${element(aws_ses_domain_dkim.dkim[0].dkim_tokens, count.index)}._domainkey.${var.ses_domain_name}"
   type            = "CNAME"
   ttl             = "600"
@@ -716,7 +659,7 @@ resource "aws_route53_record" "ses_dkim" {
 
 resource "aws_route53_record" "ses_spf" {
   count   = var.create_ses_config && length(var.route53_zone_name) > 0 ? 1 : 0
-  zone_id = data.aws_route53_zone.selected[local.route53_primary_zone_name].zone_id
+  zone_id = data.aws_route53_zone.selected[0].zone_id
   name    = var.ses_domain_name
   type    = "TXT"
   ttl     = "600"
@@ -725,7 +668,7 @@ resource "aws_route53_record" "ses_spf" {
 
 resource "aws_route53_record" "ses_dmarc" {
   count   = var.create_ses_config && length(var.route53_zone_name) > 0 ? 1 : 0
-  zone_id = data.aws_route53_zone.selected[local.route53_primary_zone_name].zone_id
+  zone_id = data.aws_route53_zone.selected[0].zone_id
   name    = "_dmarc.${var.ses_domain_name}"
   type    = "TXT"
   ttl     = "600"
@@ -734,7 +677,7 @@ resource "aws_route53_record" "ses_dmarc" {
 
 resource "aws_route53_record" "ses_mail_from_mx" {
   count   = var.create_ses_config && length(var.route53_zone_name) > 0 ? 1 : 0
-  zone_id = data.aws_route53_zone.selected[local.route53_primary_zone_name].zone_id
+  zone_id = data.aws_route53_zone.selected[0].zone_id
   name    = aws_ses_domain_mail_from.mail_from[0].mail_from_domain
   type    = "MX"
   ttl     = "600"
@@ -743,7 +686,7 @@ resource "aws_route53_record" "ses_mail_from_mx" {
 
 resource "aws_route53_record" "ses_mail_from_txt" {
   count   = var.create_ses_config && length(var.route53_zone_name) > 0 ? 1 : 0
-  zone_id = data.aws_route53_zone.selected[local.route53_primary_zone_name].zone_id
+  zone_id = data.aws_route53_zone.selected[0].zone_id
   name    = aws_ses_domain_mail_from.mail_from[0].mail_from_domain
   type    = "TXT"
   ttl     = "600"
