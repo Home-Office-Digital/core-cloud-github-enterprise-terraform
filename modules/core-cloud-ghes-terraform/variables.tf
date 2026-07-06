@@ -183,3 +183,25 @@ variable "slack_webhook_url" {
   type        = string
   sensitive   = true
 }
+
+variable "entra_zone_name" {
+  description = "Public hosted zone hosting the Entra SCIM weighted record. Empty = skip."
+  type        = string
+  default     = ""
+}
+
+variable "entra_record_name" {
+  description = "FQDN for the Entra SCIM weighted record"
+  type        = string
+  default     = ""
+}
+
+variable "entra_records" {
+  description = "Cross-account Entra ALB targets by id."
+  type = map(object({
+    dns_name = string
+    zone_id  = string
+    weight   = number
+  }))
+  default = {}
+}
