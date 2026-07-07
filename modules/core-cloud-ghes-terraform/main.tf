@@ -534,6 +534,36 @@ resource "aws_route53_record" "github_wildcard_record" {
   }
 }
 
+# Entra SCIM weighted records
+data "aws_route53_zone" "entra" {
+  for_each     = length(var.entra_records) > 0 && length(var.entra_zone_name) > 0 ? { "entra" = var.entra_zone_name } : {}
+  name         = each.value
+  private_zone = false
+}
+
+resource "aws_route53_record" "entra" {
+  for_each = length(var.entra_records) > 0 && length(var.entra_zone_name) > 0 ? var.entra_records : {}
+
+  zone_id        = data.aws_route53_zone.entra["entra"].zone_id
+  name           = var.entra_record_name
+  type           = "A"
+  set_identifier = "entra-alb-${each.key}"
+
+  weighted_routing_policy {
+    weight = each.value.weight
+  }
+
+  alias {
+    name                   = each.value.dns_name
+    zone_id                = each.value.zone_id
+    evaluate_target_health = false
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 # Monitoring
 locals {
   instance_ids = merge(
