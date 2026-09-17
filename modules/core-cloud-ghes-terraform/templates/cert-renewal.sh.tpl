@@ -2,10 +2,7 @@
 # GHES Certificate Renewal Script
 # Location on instance: /opt/cert-renewal.sh
 #
-# logic and how it should work:
-#   15 days to expiry : Slack warning, renewal will run tomorrow
-#   14 days to expiry : Issue cert via acme.sh
-#   All other days    : Silent exit, log entry only
+# Run daily from cron. Warn at 15 days and renew at 14 days or less.
 
 set -euo pipefail
 
@@ -31,10 +28,60 @@ LOG_FILE="/var/log/ghes-cert-renewal.log"
 WARN_DAYS=15
 RENEW_DAYS=14
 
-# How long to wait for ghe-config-apply to propagate before reading the new expiry
-# Retries every 30 seconds up to this many attempts
+# How long to wait for ghe-config-apply to propagate before reading the new expiry.
 APPLY_WAIT_RETRIES=10
 APPLY_WAIT_INTERVAL=30
+
+usage() {
+  cat <<'EOF'
+Usage: /opt/cert-renewal.sh [OPTION]
+
+Check the GHES certificate and renew it through ZeroSSL when it has 14 days
+or fewer remaining. The script is normally run daily by cron as root.
+
+Options:
+  -h, --help, -help       Show this help and exit.
+  --force, --force-renewal
+                          Renew without checking the remaining certificate age.
+
+Force renewal example:
+  sudo /opt/cert-renewal.sh --force
+
+Prerequisites: root access, acme.sh with Route53 DNS support, AWS CLI access
+to the EAB secrets, curl, ghe-config, and ghe-config-apply.
+EOF
+}
+
+FORCE_RENEWAL=false
+
+parse_args() {
+  case "$#" in
+    0) ;;
+    1)
+      case "$1" in
+        -h|--help|-help)
+          usage
+          exit 0
+          ;;
+        --force|--force-renewal)
+          FORCE_RENEWAL=true
+          ;;
+        *)
+          echo "ERROR: Unknown option: $1" >&2
+          usage >&2
+          exit 2
+          ;;
+      esac
+      ;;
+    *)
+      echo "ERROR: Only one option may be supplied." >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+}
+
+parse_args "$@"
 
 # Prevent multiple instances running simultaneously
 LOCKFILE="/tmp/cert-renewal.lock"
@@ -42,7 +89,21 @@ if ! mkdir "$LOCKFILE" 2>/dev/null; then
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] Another instance is running. Exiting." >> "$LOG_FILE"
   exit 0
 fi
-trap 'rm -rf "$LOCKFILE"' EXIT
+
+TMP_COMBINED=""
+cleanup() {
+  if [[ -n "$TMP_COMBINED" ]]; then
+    rm -f "$TMP_COMBINED"
+    TMP_COMBINED=""
+  fi
+}
+
+cleanup_on_exit() {
+  cleanup
+  rm -rf "$LOCKFILE"
+}
+
+trap cleanup_on_exit EXIT
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE" >&2
@@ -67,15 +128,24 @@ slack_notify() {
   fi
 }
 
-# Read days until expiry directly from ghe-motd command
+# Read days until expiry from ghe-motd. Keep all parsing in one place because
+# the command is also used to confirm propagation after applying a certificate.
 get_days_until_expiry() {
   local motd_days
-  motd_days=$(ghe-motd 2>/dev/null | grep -i "Certificate will expire in" | grep -oP '\d+(?= days)' || true)
+  motd_days=$(ghe-motd 2>/dev/null | awk '
+    tolower($0) ~ /certificate will expire in/ {
+      for (i = 1; i <= NF; i++) {
+        if (tolower($i) == "days" && $(i - 1) ~ /^[0-9]+$/) {
+          print $(i - 1)
+          exit
+        }
+      }
+    }
+  ' || true)
 
   if [[ -z "$motd_days" ]]; then
     log "ERROR: Could not read certificate expiry from ghe-motd."
-    echo "-1"
-    return
+    return 1
   fi
 
   echo "$motd_days"
@@ -92,7 +162,7 @@ wait_and_get_expiry() {
   while [[ "$attempt" -le "$APPLY_WAIT_RETRIES" ]]; do
     log "Checking ghe-motd for updated expiry. Attempt $${attempt} of $${APPLY_WAIT_RETRIES}."
 
-    motd_days=$(ghe-motd 2>/dev/null | grep -i "Certificate will expire in" | grep -oP '\d+(?= days)' || true)
+    motd_days=$(get_days_until_expiry || true)
 
     if [[ -n "$motd_days" && "$motd_days" -gt "$RENEW_DAYS" ]]; then
       log "ghe-motd confirms certificate updated. Expires in $${motd_days} days."
@@ -105,13 +175,15 @@ wait_and_get_expiry() {
     (( attempt++ ))
   done
 
-  log "WARNING: ghe-motd did not confirm update after all retries."
-  echo "unknown"
+  log "ERROR: ghe-motd did not confirm certificate propagation after all retries."
+  return 1
 }
 
 # Fetch EAB credentials from AWS Secrets Manager at runtime
 # Secrets are stored as JSON objects e.g. {"eab-kid": "value"} and {"eab-hmac-key": "value"}
 fetch_eab_credentials() {
+  local expiry_context="$1"
+
   log "Fetching EAB credentials from AWS Secrets Manager."
 
   local raw_kid raw_hmac
@@ -122,7 +194,7 @@ fetch_eab_credentials() {
     --output text 2>&1) || {
     log "ERROR: Failed to fetch EAB_KID from Secrets Manager: $${raw_kid}"
     slack_notify "GHES Cert Renewal Failed. $${GHES_HOSTNAME}" \
-      "Could not retrieve EAB_KID from Secrets Manager. Check IAM permissions on this instance. Certificate expires in $${days} days. Manual intervention required."
+      "Could not retrieve EAB_KID from Secrets Manager. Check IAM permissions on this instance. Certificate expiry context: $${expiry_context}. Manual intervention required."
     exit 1
   }
 
@@ -132,7 +204,7 @@ fetch_eab_credentials() {
     --output text 2>&1) || {
     log "ERROR: Failed to fetch EAB_HMAC from Secrets Manager: $${raw_hmac}"
     slack_notify "GHES Cert Renewal Failed. $${GHES_HOSTNAME}" \
-      "Could not retrieve EAB_HMAC from Secrets Manager. Check IAM permissions on this instance. Certificate expires in $${days} days. Manual intervention required."
+      "Could not retrieve EAB_HMAC from Secrets Manager. Check IAM permissions on this instance. Certificate expiry context: $${expiry_context}. Manual intervention required."
     exit 1
   }
 
@@ -156,6 +228,8 @@ fetch_eab_credentials() {
 # Register acme.sh account with ZeroSSL using EAB credentials
 # Idempotent. acme.sh skips re-registration if the account already exists
 register_acme_account() {
+  local expiry_context="$1"
+
   log "Registering acme.sh account with ZeroSSL."
 
   local output exit_code
@@ -169,7 +243,7 @@ register_acme_account() {
   if [[ "$exit_code" -ne 0 ]]; then
     log "ERROR: acme.sh account registration failed (exit $${exit_code})"
     slack_notify "GHES Cert Renewal Failed. $${GHES_HOSTNAME}" \
-      "ZeroSSL account registration failed. This usually means the EAB credentials are invalid or expired. Check the values in Secrets Manager. Certificate expires in $${days} days. Manual intervention required."
+      "ZeroSSL account registration failed. This usually means the EAB credentials are invalid or expired. Check the values in Secrets Manager. Certificate expiry context: $${expiry_context}. Manual intervention required."
     exit 1
   fi
 
@@ -179,6 +253,8 @@ register_acme_account() {
 # Issue wildcard certificate via ZeroSSL + Route53 DNS validation
 # acme.sh stores certs under /root/.acme.sh automatically, key and fullchain combined after issuance
 issue_certificate() {
+  local expiry_context="$1"
+
   log "Issuing wildcard certificate for $${GHES_HOSTNAME} via ZeroSSL and Route53."
 
   local output exit_code
@@ -194,11 +270,12 @@ issue_certificate() {
   if [[ "$exit_code" -ne 0 ]]; then
     log "ERROR: Certificate issuance failed (exit $${exit_code})"
     slack_notify "GHES Cert Renewal Failed. $${GHES_HOSTNAME}" \
-      "Certificate issuance failed for $${GHES_HOSTNAME}. Common causes: Route53 IAM permissions, DNS propagation timeout, ZeroSSL rate limit. Certificate expires in $${days} days. Manual intervention required."
+      "Certificate issuance failed for $${GHES_HOSTNAME}. Common causes: Route53 IAM permissions, DNS propagation timeout, ZeroSSL rate limit. Certificate expiry context: $${expiry_context}. Manual intervention required."
     exit 1
   fi
 
-  # Combine key + fullchain into single PEM
+  # Combine key + fullchain into a temporary PEM for ghe-config.
+  TMP_COMBINED=$(mktemp /tmp/ghes-cert-renewal.XXXXXX.pem)
   cat "$${ACME_CERT_DIR}/$${GHES_HOSTNAME}.key" "$${ACME_CERT_DIR}/fullchain.cer" > "$TMP_COMBINED"
   log "Certificate issued successfully. Combined PEM written to $${TMP_COMBINED}."
 }
@@ -206,6 +283,8 @@ issue_certificate() {
 # Apply the certificate to GHES using ghe-config and ghe-config-apply
 # ghe-ssl-certificate-setup requires a TTY and fails via cron
 apply_certificate() {
+  local expiry_context="$1"
+
   log "Applying certificate via ghe-config and ghe-config-apply."
 
   local output exit_code
@@ -215,7 +294,7 @@ apply_certificate() {
   if [[ "$exit_code" -ne 0 ]]; then
     log "ERROR: ghe-config failed to store certificate (exit $${exit_code})"
     slack_notify "GHES Cert Apply Failed. $${GHES_HOSTNAME}" \
-      "Certificate was issued but ghe-config failed to store it. The combined PEM is at $${TMP_COMBINED} if you need to apply manually. Certificate expires in $${days} days."
+      "Certificate was issued but ghe-config failed to store it. The combined PEM is at $${TMP_COMBINED} if you need to apply manually. Certificate expiry context: $${expiry_context}."
     exit 1
   fi
 
@@ -228,52 +307,63 @@ apply_certificate() {
   if [[ "$exit_code" -ne 0 ]]; then
     log "ERROR: ghe-config-apply failed (exit $${exit_code})"
     slack_notify "GHES Cert Apply Failed. $${GHES_HOSTNAME}" \
-      "Certificate was stored but ghe-config-apply failed. Certificate expires in $${days} days."
+      "Certificate was stored but ghe-config-apply failed. Certificate expiry context: $${expiry_context}."
     exit 1
   fi
 
   log "ghe-config-apply completed. Waiting for propagation."
 }
 
-# Clean up temp files so key material does not sit on disk
-cleanup() {
-  rm -f "$TMP_COMBINED"
-  log "Temporary cert files removed."
+renew_certificate() {
+  local expiry_context="$1"
+
+  fetch_eab_credentials "$expiry_context"
+  register_acme_account "$expiry_context"
+  issue_certificate "$expiry_context"
+  apply_certificate "$expiry_context"
+  cleanup
+
+  local new_expiry
+  if ! new_expiry=$(wait_and_get_expiry); then
+    log "ERROR: Certificate renewal was applied but propagation could not be confirmed."
+    slack_notify "GHES Certificate Renewal Unconfirmed. $${GHES_HOSTNAME}" \
+      "The certificate was issued and applied, but ghe-motd did not confirm propagation. Manual verification is required. Certificate expiry context: $${expiry_context}."
+    return 1
+  fi
+
+  log "Renewal complete. Certificate now expires in $${new_expiry}."
+  slack_notify "GHES Certificate Renewed. $${GHES_HOSTNAME}" \
+    "The TLS certificate for $${GHES_HOSTNAME} has been successfully renewed. Certificate now expires in $${new_expiry}. Propagation can take up to 5 minutes."
 }
 
 main() {
-  log "Starting cert check for $${GHES_HOSTNAME}"
+  log "Starting certificate check for $${GHES_HOSTNAME}"
 
   local days
-  days=$(get_days_until_expiry)
-  log "Days until expiry: $${days}"
-
-  if [[ "$days" -eq -1 ]]; then
+  if [[ "$FORCE_RENEWAL" == true ]]; then
+    days="forced"
+    log "Force renewal requested. Skipping certificate expiry check."
+  elif ! days=$(get_days_until_expiry); then
     slack_notify "GHES Cert Check Failed. $${GHES_HOSTNAME}" \
       "Could not read certificate expiry from ghe-motd. Manual investigation required."
     exit 1
+  else
+    log "Days until expiry: $${days}"
   fi
 
-  if [[ "$days" -eq "$WARN_DAYS" ]]; then
+  if [[ "$FORCE_RENEWAL" != true && "$days" -eq "$WARN_DAYS" ]]; then
     log "Certificate expires in $${days} days. Sending advance warning."
     slack_notify "GHES Certificate Expiry Warning. $${GHES_HOSTNAME}" \
       "The TLS certificate for $${GHES_HOSTNAME} expires in $${days} days. Automatic renewal will be attempted tomorrow at the scheduled cron time. No action required unless you want to renew earlier."
 
-  elif [[ "$days" -eq "$RENEW_DAYS" ]]; then
-    log "Certificate expires in $${days} days. Starting renewal process."
+  elif [[ "$FORCE_RENEWAL" == true || "$days" -le "$RENEW_DAYS" ]]; then
+    if [[ "$FORCE_RENEWAL" == true ]]; then
+      log "Starting forced renewal process."
+    else
+      log "Certificate expires in $${days} days. Starting renewal process."
+    fi
 
-    fetch_eab_credentials
-    register_acme_account
-    issue_certificate
-    apply_certificate
-    cleanup
-
-    local new_expiry
-    new_expiry=$(wait_and_get_expiry)
-    log "Renewal complete. Certificate now expires in $${new_expiry}."
-
-    slack_notify "GHES Certificate Renewed. $${GHES_HOSTNAME}" \
-      "The TLS certificate for $${GHES_HOSTNAME} has been successfully renewed. Certificate now expires in $${new_expiry}. Propagation can take up to 5 minutes."
+    renew_certificate "$days"
 
   else
     log "Certificate expires in $${days} days. No action required."
