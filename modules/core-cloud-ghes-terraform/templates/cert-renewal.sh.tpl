@@ -6,12 +6,16 @@
 
 set -euo pipefail
 
-# Hostname and Slack webhook injected via terragrunt at build time
+# Hostname and Slack webhook injected via Terraform at build time
 GHES_HOSTNAME="${ghes_hostname}"
 SLACK_WEBHOOK_URL="${slack_webhook_url}"
 
-# acme.sh runs as root so certs are stored under /root/.acme.sh
-ACME_CERT_DIR="/root/.acme.sh/$${GHES_HOSTNAME}"
+# Script defaults
+NOTIFY_SLACK="true"
+RENEW_NOW="false"
+
+# acme.sh uses ECC certificates by default, stored in the _ecc directory.
+ACME_CERT_DIR="/root/.acme.sh/$${GHES_HOSTNAME}_ecc"
 TMP_COMBINED="/tmp/combined.pem"
 
 # AWS Secrets Manager secret names for ZeroSSL EAB credentials
@@ -63,8 +67,9 @@ parse_args() {
           usage
           exit 0
           ;;
-        --force|--force-renewal)
+        --force|--force-renewal|--now)
           FORCE_RENEWAL=true
+          RENEW_NOW="true"
           ;;
         *)
           echo "ERROR: Unknown option: $1" >&2
@@ -113,6 +118,16 @@ slack_notify() {
   local title="$1"
   local message="$2"
 
+  if [[ "$${NOTIFY_SLACK,,}" != "true" ]]; then
+    log "Slack notifications disabled. Skipping notification: $${title}"
+    return 0
+  fi
+
+  if [[ -z "$SLACK_WEBHOOK_URL" ]]; then
+    log "WARNING: Slack notifications enabled but SLACK_WEBHOOK_URL is empty. Skipping notification: $${title}"
+    return 0
+  fi
+
   local payload
   payload=$(printf '{"title": "%s", "message": "%s"}' "$title" "$message")
 
@@ -121,7 +136,7 @@ slack_notify() {
     -X POST \
     -H 'Content-type: application/json' \
     --data "$payload" \
-    "$SLACK_WEBHOOK_URL")
+    "$SLACK_WEBHOOK_URL" || true)
 
   if [[ "$http_code" != "200" ]]; then
     log "WARNING: Slack notify returned HTTP $${http_code}. Message may not have delivered."
@@ -340,7 +355,7 @@ main() {
   log "Starting certificate check for $${GHES_HOSTNAME}"
 
   local days
-  if [[ "$FORCE_RENEWAL" == true ]]; then
+  if [[ "$FORCE_RENEWAL" == true || "$${RENEW_NOW,,}" == "true" ]]; then
     days="forced"
     log "Force renewal requested. Skipping certificate expiry check."
   elif ! days=$(get_days_until_expiry); then
@@ -351,12 +366,12 @@ main() {
     log "Days until expiry: $${days}"
   fi
 
-  if [[ "$FORCE_RENEWAL" != true && "$days" -eq "$WARN_DAYS" ]]; then
+  if [[ "$FORCE_RENEWAL" != true && "$${RENEW_NOW,,}" != "true" && "$days" -eq "$WARN_DAYS" ]]; then
     log "Certificate expires in $${days} days. Sending advance warning."
     slack_notify "GHES Certificate Expiry Warning. $${GHES_HOSTNAME}" \
       "The TLS certificate for $${GHES_HOSTNAME} expires in $${days} days. Automatic renewal will be attempted tomorrow at the scheduled cron time. No action required unless you want to renew earlier."
 
-  elif [[ "$FORCE_RENEWAL" == true || "$days" -le "$RENEW_DAYS" ]]; then
+  elif [[ "$FORCE_RENEWAL" == true || "$${RENEW_NOW,,}" == "true" || "$days" -le "$RENEW_DAYS" ]]; then
     if [[ "$FORCE_RENEWAL" == true ]]; then
       log "Starting forced renewal process."
     else
