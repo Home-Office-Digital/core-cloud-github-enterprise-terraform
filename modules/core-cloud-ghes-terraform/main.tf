@@ -465,10 +465,10 @@ resource "aws_ebs_volume" "github_data" {
 }
 
 resource "aws_volume_attachment" "github_data" {
-  for_each    = aws_ebs_volume.github_data
+  for_each    = aws_instance.github_instance
   device_name = "/dev/sdb"
-  volume_id   = each.value.id
-  instance_id = aws_instance.github_instance[each.key].id
+  volume_id   = aws_ebs_volume.github_data[each.key].id
+  instance_id = each.value.id
 
   # Match the previous ebs_block_device behaviour: keep the volume around
   # if the instance is destroyed.
@@ -493,10 +493,10 @@ resource "aws_ebs_volume" "github_backup" {
 }
 
 resource "aws_volume_attachment" "github_backup" {
-  for_each    = aws_ebs_volume.github_backup
+  for_each    = aws_instance.github_instance
   device_name = "/dev/sdc"
-  volume_id   = each.value.id
-  instance_id = aws_instance.github_instance[each.key].id
+  volume_id   = aws_ebs_volume.github_backup[each.key].id
+  instance_id = each.value.id
 
   stop_instance_before_detaching = true
 }
