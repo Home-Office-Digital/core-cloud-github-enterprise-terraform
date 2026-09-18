@@ -338,25 +338,6 @@ resource "aws_instance" "github_instance" {
     encrypted             = true
   }
 
-  ebs_block_device {
-    device_name           = "/dev/sdb"
-    volume_size           = var.ebs_volume_size
-    volume_type           = "gp3"
-    delete_on_termination = false
-    encrypted             = true
-  }
-
-  # Though this disk is not required immediatly for 2nd instance, it will be helpful when promoted. 
-  # We have to make sure 2nd instance's disk has to be configured as backup only when it is promoted. As per Github, replica not good for backup.
-
-  ebs_block_device {
-    device_name           = "/dev/sdc"
-    volume_size           = var.backup_root_volume_size
-    volume_type           = "gp3"
-    encrypted             = true
-    delete_on_termination = false
-  }
-
   user_data = <<-EOF
   #!/bin/bash
   export DEBIAN_FRONTEND=noninteractive
@@ -463,6 +444,61 @@ metadata_options {
   http_endpoint               = "enabled"  # Keep metadata endpoint enabled
   http_put_response_hop_limit = 1          # Limit hop count for PUT requests
 }
+}
+
+# Data volume, managed independently of the instance lifecycle so that
+# replacing an instance (AMI/type change, etc.) does not strand or destroy
+# the volume, and so Terraform can detect drift on it.
+resource "aws_ebs_volume" "github_data" {
+  for_each          = aws_instance.github_instance
+  availability_zone = each.value.availability_zone
+  size              = var.ebs_volume_size
+  type              = "gp3"
+  encrypted         = true
+
+  tags = merge(
+    {
+      Name = "github-enterprise-server-data-${each.key}"
+    },
+    var.common_tags
+  )
+}
+
+resource "aws_volume_attachment" "github_data" {
+  for_each    = aws_ebs_volume.github_data
+  device_name = "/dev/sdb"
+  volume_id   = each.value.id
+  instance_id = aws_instance.github_instance[each.key].id
+
+  # Match the previous ebs_block_device behaviour: keep the volume around
+  # if the instance is destroyed.
+  stop_instance_before_detaching = true
+}
+
+# Though this disk is not required immediatly for 2nd instance, it will be helpful when promoted.
+# We have to make sure 2nd instance's disk has to be configured as backup only when it is promoted. As per Github, replica not good for backup.
+resource "aws_ebs_volume" "github_backup" {
+  for_each          = aws_instance.github_instance
+  availability_zone = each.value.availability_zone
+  size              = var.backup_root_volume_size
+  type              = "gp3"
+  encrypted         = true
+
+  tags = merge(
+    {
+      Name = "github-enterprise-server-backup-${each.key}"
+    },
+    var.common_tags
+  )
+}
+
+resource "aws_volume_attachment" "github_backup" {
+  for_each    = aws_ebs_volume.github_backup
+  device_name = "/dev/sdc"
+  volume_id   = each.value.id
+  instance_id = aws_instance.github_instance[each.key].id
+
+  stop_instance_before_detaching = true
 }
 
 resource "aws_eip" "github_eip" {

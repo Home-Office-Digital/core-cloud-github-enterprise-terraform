@@ -29,7 +29,7 @@ run "security_test" {
   }
 
   assert {
-    condition     = alltrue(flatten([for _, instance in aws_instance.github_instance : [for block in instance.ebs_block_device : block.encrypted == true]]))
+    condition     = alltrue([for _, vol in aws_ebs_volume.github_data : vol.encrypted == true]) && alltrue([for _, vol in aws_ebs_volume.github_backup : vol.encrypted == true])
     error_message = "Expected all attached EBS data volumes to be encrypted."
   }
 
