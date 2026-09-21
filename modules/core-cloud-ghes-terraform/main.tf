@@ -319,12 +319,17 @@ resource "aws_vpc_security_group_egress_rule" "sg_outbound" {
   cidr_ipv4         = "0.0.0.0/0"
 }
 
+data "aws_subnet" "github_instance" {
+  for_each = aws_security_group.github_sg
+  id       = element(var.private_subnet_ids, tonumber(each.key) - 1)
+}
+
 resource "aws_instance" "github_instance" {
   for_each               = aws_security_group.github_sg
   ami                    = var.ami_id
   instance_type          = var.instance_type
   key_name               = var.key_name
-  subnet_id              = element(var.private_subnet_ids, tonumber(each.key) - 1)
+  subnet_id              = data.aws_subnet.github_instance[each.key].id
   vpc_security_group_ids = [each.value.id]
 
   associate_public_ip_address = var.public_ip
@@ -450,7 +455,7 @@ metadata_options {
 # replacing an instance (AMI/type change, etc.) does not strand or destroy
 # the volume, and so Terraform can detect drift on it.
 resource "aws_ebs_volume" "github_data" {
-  for_each          = aws_instance.github_instance
+  for_each          = data.aws_subnet.github_instance
   availability_zone = each.value.availability_zone
   size              = var.ebs_volume_size
   type              = "gp3"
@@ -478,7 +483,7 @@ resource "aws_volume_attachment" "github_data" {
 # Though this disk is not required immediatly for 2nd instance, it will be helpful when promoted.
 # We have to make sure 2nd instance's disk has to be configured as backup only when it is promoted. As per Github, replica not good for backup.
 resource "aws_ebs_volume" "github_backup" {
-  for_each          = aws_instance.github_instance
+  for_each          = data.aws_subnet.github_instance
   availability_zone = each.value.availability_zone
   size              = var.backup_root_volume_size
   type              = "gp3"
