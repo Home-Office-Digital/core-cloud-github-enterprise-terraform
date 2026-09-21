@@ -4,12 +4,12 @@ variable "vpc_id" {
 }
 
 variable "vpc_cidr" {
-  description = "SSH key for instance access"
+  description = "CIDR block of the VPC"
   type        = string
 }
 
 variable "key_name" {
-  description = "CIDR block of the VPC"
+  description = "SSH key for instance access"
   type        = string
 }
 
