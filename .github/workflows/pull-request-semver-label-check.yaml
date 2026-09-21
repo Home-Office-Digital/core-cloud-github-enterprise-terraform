@@ -37,3 +37,4 @@ jobs:
         with:
           increment: ${{ steps.label.outputs.matchedLabels }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_to_highest: true

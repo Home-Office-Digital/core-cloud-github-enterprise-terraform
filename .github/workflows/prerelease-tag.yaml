@@ -61,6 +61,7 @@ jobs:
         with:
           increment: ${{ steps.semver.outputs.increment }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_to_highest: true
 
       # Determine RC sequence and create tag vX.Y.Z-rc.N on this PR commit
       - name: Tag pre-release

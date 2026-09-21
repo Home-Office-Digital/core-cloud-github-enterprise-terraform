@@ -47,6 +47,7 @@ jobs:
         with:
           increment: ${{ steps.label.outputs.matchedLabels != '' && steps.label.outputs.matchedLabels || steps.label.outputs.matched }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_to_highest: true
           
 
       - name: Tag Repository
