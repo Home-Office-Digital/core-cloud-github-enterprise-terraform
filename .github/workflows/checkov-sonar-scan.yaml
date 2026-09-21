@@ -3,12 +3,8 @@ name: Checkov and SonarQube Scan
 on:
   pull_request:
     branches: [main]
-    paths:
-      - 'modules/core-cloud-ghes-terraform/**'
   push:
     branches: [main]
-    paths:
-      - 'modules/core-cloud-ghes-terraform/**'
   workflow_dispatch: {}  # to allow manual runs if needed
 
 permissions:
